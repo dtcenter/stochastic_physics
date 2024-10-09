@@ -7,7 +7,7 @@ module stochy_data_mod
  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
  use stochy_namelist_def
- use constants_mod, only : radius
+! use constants_mod, only : radius
  use mpi_wrapper, only: mp_bcst, is_rootpe, mype
  use stochy_patterngenerator_mod, only: random_pattern, patterngenerator_init,&
  getnoise, patterngenerator_advance,ndimspec,chgres_pattern,computevarspec_r
@@ -32,6 +32,7 @@ module stochy_data_mod
  integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input) 
  integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input) 
  real*8, public,allocatable :: sl(:)
+ real*8, public, parameter :: RADIUS = 6.3712e+6
 
  real(kind=kind_phys),public, allocatable :: vfact_sppt(:),vfact_shum(:),vfact_skeb(:),vfact_spp(:)
  real(kind=kind_phys),public, allocatable :: skeb_vwts(:,:)
@@ -74,7 +75,7 @@ module stochy_data_mod
    iret=0
 ! read in namelist
 
-   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
+   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt),iret)
   
    if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
    if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
@@ -378,7 +379,7 @@ module stochy_data_mod
          endif
       endif
       ones = 1.
-      call patterngenerator_init(lndp_lscale(1:nlndp),lndpint,lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
+      call patterngenerator_init(lndp_lscale(1:nlndp),real(delt,kind_phys),lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
                                  lonf,latg,jcap,gis_stochy%ls_node,nlndp,n_var_lndp,0,new_lscale)
       do n=1,nlndp
          if (is_rootpe()) print *, 'Initialize random pattern for LNDP PERTS'
@@ -433,7 +434,7 @@ module stochy_data_mod
          endif
       endif
       ones = 1.
-      call patterngenerator_init(spp_lscale(1:nspp),sppint,spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
+      call patterngenerator_init(spp_lscale(1:nspp),real(delt,kind_phys),spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
                                  lonf,latg,jcap,gis_stochy%ls_node,nspp,n_var_spp,0,new_lscale)
       do n=1,nspp
          if (is_rootpe()) print *, 'Initialize random pattern for SPP PERTS'
@@ -476,7 +477,7 @@ module stochy_data_mod
 
  use netcdf
  use compns_stochy_mod, only : compns_stochy_ocn
- use mpp_domains_mod,     only: mpp_broadcast_domain,MPP_DOMAIN_TIME,mpp_domains_init ,mpp_domains_set_stack_size
+! use mpp_domains_mod,     only: mpp_broadcast_domain,MPP_DOMAIN_TIME,mpp_domains_init ,mpp_domains_set_stack_size
 ! initialize random patterns.  A spinup period of spinup_efolds times the
 ! temporal time scale is run for each pattern.
    integer, intent(in) :: nlevs
@@ -485,9 +486,11 @@ module stochy_data_mod
    
    integer :: nn,nm,stochlun,n,jcapin
    integer :: l,jbasev,jbasod
-   integer :: indev,indod,varid1,varid2,varid3,varid4,ierr
+   integer :: indev,indod,indlsod,indlsev,varid1,varid2,varid3,varid4,ierr
    
    real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
+   include 'function_indlsod'
+   include 'function_indlsev'
    include 'netcdf.inc'
    stochlun=99
    levs=nlevs

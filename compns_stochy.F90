@@ -64,10 +64,10 @@ module compns_stochy_mod
       epbl,epbl_lscale,epbl_tau,iseed_epbl,                                    &
       ocnsppt,ocnsppt_lscale,ocnsppt_tau,iseed_ocnsppt,pbl_taper
       namelist /nam_sfcperts/lndp_type,lndp_model_type, lndp_var_list, lndp_prt_list, & 
-                            iseed_lndp,lndpint,lndp_tau,lndp_lscale 
+                            iseed_lndp, lndp_tau,lndp_lscale 
 !     For SPP physics parameterization perterbations
       namelist /nam_sppperts/spp_var_list, spp_prt_list, iseed_spp, &
-      sppint,spp_tau,spp_lscale,spp_sigtop1,spp_sigtop2,spp_stddev_cutoff
+      spp_tau,spp_lscale,spp_sigtop1, spp_sigtop2,spp_stddev_cutoff
 
       rerth  =6.3712e+6      ! radius of earth (m)
       tol=0.01  ! tolerance for calculations
@@ -156,8 +156,6 @@ module compns_stochy_mod
       spp_tau     = -999.       ! time scales
       spp_stddev_cutoff = 0     ! cutoff/limit for std-dev (zero==no limit applied)
       iseed_spp   = 0           ! random seeds (if 0 use system clock)
-      sppint      = 0           ! SPP interval in seconds
-      lndpint     = 0           ! lndp interval in seconds
 
 #ifdef INTERNAL_FILE_NML
       read(input_nml_file, nml=nam_stochy)
@@ -214,9 +212,6 @@ module compns_stochy_mod
             skeb=skeb*1.111e-9*sqrt(deltim)
          endif
       ENDIF
-      IF (spp_prt_list(1) > 0 ) THEN
-         do_spp=.true.
-      ENDIF
 !    compute frequencty to estimate dissipation timescale
       IF (do_skeb) THEN
           IF (skebint == 0.) skebint=deltim
@@ -245,26 +240,6 @@ module compns_stochy_mod
             return
           ENDIF
       ENDIF
-      IF (do_spp) THEN
-          IF (sppint == 0.) sppint=deltim
-          nsspp=nint(sppint/deltim)                                ! sppint in seconds
-          IF(nsspp<=0 .or. abs(nsspp-sppint/deltim)>tol) THEN
-             WRITE(0,*) "SPP interval is invalid",sppint
-            iret=9
-            return
-          ENDIF
-      ENDIF
-
-      IF (lndp_type > 0) THEN
-          IF (lndpint == 0.) lndpint=deltim
-          nslndp=nint(lndpint/deltim)       
-          IF(nslndp<=0 .or. abs(nslndp-lndpint/deltim)>tol) THEN
-             WRITE(0,*) "lndp interval is invalid",lndpint
-            iret=9
-            return
-          ENDIF
-      ENDIF
-
 !calculate ntrunc if not supplied
      if (ntrunc .LT. 1) then  
         if (me==0) print*,'ntrunc not supplied, calculating'
@@ -449,7 +424,8 @@ module compns_stochy_mod
 
 
       use stochy_namelist_def
-      use mpp_mod ,only: mpp_pe,mpp_root_pe
+!      use mpp_mod ,only: mpp_pe,mpp_root_pe
+      use mpi_wrapper, only: is_rootpe
 
       implicit none
 
@@ -504,7 +480,8 @@ module compns_stochy_mod
       open (unit=nlunit, file='input.nml', action='READ', status='OLD', iostat=ios)
       read(nlunit,nam_stochy)
 
-      if (mpp_pe()==mpp_root_pe()) then
+!      if (mpp_pe()==mpp_root_pe()) then
+      if (is_rootpe()) then
       print *,' in compns_stochy_ocn'
       endif
 
@@ -532,7 +509,7 @@ module compns_stochy_mod
       ENDIF
 !calculate ntrunc if not supplied
      if (ntrunc .LT. 1) then  
-        if (mpp_pe()==mpp_root_pe()) print*,'ntrunc not supplied, calculating'
+        if (is_rootpe()) print*,'ntrunc not supplied, calculating'
         circ=2*3.1415928*rerth ! start with lengthscale that is circumference of the earth
         l_min=circ
         do k=1,5
@@ -541,11 +518,11 @@ module compns_stochy_mod
        enddo
        !ntrunc=1.5*circ/l_min
        ntrunc=circ/l_min
-       if (mpp_pe()==mpp_root_pe()) print*,'ntrunc calculated from l_min',l_min,ntrunc
+       if (is_rootpe()) print*,'ntrunc calculated from l_min',l_min,ntrunc
      endif
      ! ensure lat_s is a mutiple of 4 with a reminader of two
      ntrunc=INT((ntrunc+1)/four)*four+2
-     if (mpp_pe()==mpp_root_pe()) print*,'NOTE ntrunc adjusted for even nlats',ntrunc
+     if (is_rootpe()) print*,'NOTE ntrunc adjusted for even nlats',ntrunc
 
 ! set up gaussian grid for ntrunc if not already defined. 
      if (lon_s.LT.1 .OR. lat_s.LT.1) then
@@ -554,13 +531,13 @@ module compns_stochy_mod
 ! Grid needs to be larger since interpolation is bi-linear
         lat_s=lat_s*2
         lon_s=lon_s*2
-        if (mpp_pe()==mpp_root_pe()) print*,'gaussian grid not set, defining here',lon_s,lat_s
+        if (is_rootpe()) print*,'gaussian grid not set, defining here',lon_s,lat_s
      endif
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
 !  All checks are successful.
 !
-      if (mpp_pe()==mpp_root_pe()) then
+      if (is_rootpe()) then
          print *, 'ocean stochastic physics'
          print *, ' pert_epbl : ', pert_epbl
          print *, ' do_ocnsppt : ', do_ocnsppt
