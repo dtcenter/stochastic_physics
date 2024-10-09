@@ -1,0 +1,69 @@
+        <nml_record name="nam_stochy" in_defaults="true">
+                <!-- NAMELIST VARIABLES ADDED FOR STOCHASTIC PHYSICS: -->
+                <nml_option name="config_sppt_1" type="real" default_value="0.8" 
+                     units="-"
+                     description="stochastic physics tendency amplitude"
+                     possible_values="Positive values, 0.1 - 1.0"/>
+
+                <nml_option name="config_sppt_2" type="real" default_value="0.4" 
+                     units="-"
+                     description="stochastic physics tendency amplitude"
+                     possible_values="Positive values, 0.1 - 1.0"/>
+
+                <nml_option name="config_sppt_3" type="real" default_value="0.1" 
+                     units="-"
+                     description="stochastic physics tendency amplitude"
+                     possible_values="Positive values, 0.1 - 1.0"/>
+
+                <nml_option name="config_sppt_tau_1" type="real" default_value="21600" 
+                     units="seconds"
+                     description="sppt time scales"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_tau_2" type="real" default_value="86400" 
+                     units="seconds"
+                     description="sppt time scales"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_tau_3" type="real" default_value="21600" 
+                     units="seconds"
+                     description="sppt time scales"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_lscale_1" type="real" default_value="500000" 
+                     units="meters"
+                     description="sppt length scales"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_lscale_2" type="real" default_value="1000000" 
+                     units="meters"
+                     description="sppt length scales"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_lscale_3" type="real" default_value="2000000" 
+                     units="meters"
+                     description="sppt length scales"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_logit" type="logical" default_value=".ture." 
+                     units="-"
+                     description="sppt logit transform for sppt to bounded interval [-1,+1]"
+                     possible_values="Logical values"/>
+
+                <nml_option name="config_sppt_sfclimit" type="logical" default_value=".true." 
+                     units="-"
+                     description="sppt reduces amplitudes near surface"
+                     possible_values="Logical values"/>
+
+                <nml_option name="config_iseed_sppt" type="integer" default_value="3" 
+                     units="-"
+                     description="sppt seed"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_stochini" type="logical" default_value=".false." 
+                     units="-"
+                     description="true: read in pattern, falser : init from seed"
+                     possible_values="Logical values"/>
+
+        </nml_record>
+

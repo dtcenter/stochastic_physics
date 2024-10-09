@@ -61,21 +61,24 @@ module stochastic_physics_mpas
 
   contains
 
-subroutine stochastic_physics_patinit (domain, levs, ierr)
+subroutine stochastic_physics_patinit (domain, ierr)
 
     use stochastic_physics,  only: init_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
-    integer, intent(in)  :: levs                 
     integer, intent(out) :: ierr
 
 !local variables:
     type(block_type),pointer:: block
-    integer :: blk_num, maxblk, nblks, n, v
+    integer :: maxblk, nblks, n, v
     logical :: param_update_flag
     integer, pointer :: nCells, nVertLevels, nThreads
+    integer :: blksz(16)
     real(kind=RKIND), pointer :: dt
+    real(kind=kind_phys):: sppt_amp
+    real(kind=kind_phys), allocatable :: xlon(:,:)
+    real(kind=kind_phys), allocatable :: xlat(:,:)
     
     print*, 'Enter stochastic_physics_patinit...', mype, domain % dminfo % nprocs
 
@@ -84,15 +87,47 @@ subroutine stochastic_physics_patinit (domain, levs, ierr)
     print*,'domain%dm_info%comm', domain%dminfo%comm 
     print*,'domain%dm_info%nprocs', domain%dminfo%nprocs  
     print*,'domain%dm_info%my_proc_id', domain%dminfo%my_proc_id  
+    nblks = 0; maxblk = 1
+    blksz = 0
     block => domain % blocklist
     do while(associated(block))
+      nblks = nblks + 1
       call mpas_pool_get_subpool(block%structs,'mesh' ,mesh)
+      call mpas_pool_get_dimension(mesh,'nCells',nCells)
+      call mpas_pool_get_dimension(mesh, 'nVertLevels', nVertLevels)
+      blksz(nblks) = nCells
+      if (nCells > maxblk) then
+        maxblk = nCells
+      endif 
       call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
-      call mpas_pool_get_array(tend_physics,'tend_physics',st_pat)
-      block => block % next
+      call mpas_pool_get_array(tend_physics,'stoch_pattern',st_pat)
+      st_pat(:,:) = real(domain%dminfo%my_proc_id)
+      print*, 'size(st_pat,:) - dimensions:', size(st_pat,1), size(st_pat,2)
+      print*, 'st_pat(:,:), assignment', st_pat(1:10,1)
+      print*, 'In do while loop, nblks and nCells : ', nblks, nCells
+      block => block%next
     enddo
 
+!    allocate(xlon(nblks,maxblk))
+!    allocate(xlat(nblks,maxblk))
     ierr = 0
+!    call init_stochastic_physics(nVertLevels, & ! number of vertical levels
+!         blksz, dt, &  ! physics timestep in seconds   
+!         sppt_amp, & !pjp cloud perturbations (output)
+!         input_nml_file, fn_nml, nlunit, &   ! namelist file
+!         xlon, xlat, do_sppt, do_shum, do_skeb, &
+!         lndp_type, n_var_lndp, & !land perturbation scheme and # of variables
+!         use_zmtnblck, skeb_npass, & ! stochastic physics control variables
+!         lndp_var_list, lndp_prt_list, & ! land perturbation var and print list
+!         n_var_spp, spp_var_list, spp_prt_list, & ! spp var infomation
+!         spp_stddev_cutoff, do_spp,  & ! spp flags                    
+!         ak, bk, nthreads, & ! openMP threads available for ohysics
+!         master, communicator, & ! master atmosphere processor MPI-rank, MPI communicator 
+!         ierr)
+!     if (ierr/=0)  then
+!         write(6,*) 'call to init_stochastic_physics failed'
+!         return
+!     endif
 
   end subroutine stochastic_physics_patinit
 

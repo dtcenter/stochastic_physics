@@ -25,6 +25,7 @@ OBJS = \
 	mersenne_twister.o \
 	stochy_patterngenerator.o \
 	compns_stochy.o \
+        stochy_nml_rec.o \
 	stochy_data_mod.o \
 	get_stochy_pattern.o \
         stochastic_physics.o \
