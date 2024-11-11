@@ -1,10 +1,31 @@
+   !***********************************************************************
+   !
+   !  Module stochastic namelist records
+   !
+   !> \brief   module accesses the MPAS stochastic physics namelist 
+   !> \author  Ning Wang
+   !> \date    Oct 2024
+   !
+   !-----------------------------------------------------------------------
 module stoch_nml_rec
 
    implicit none
 
    contains
 
-   subroutine get_nml_rec (domain, me,deltim,iret)
+   !***********************************************************************
+   !
+   !  routine get_nml_rec
+   !
+   !> \brief   routine to retrieve stochastic physics namelist records 
+   !> \author  Ning Wang
+   !> \date    Oct 2024
+   !> \details 
+   !>  This routine retrieves stochastic physics namelist records which
+   !>  are defined in the registry files. 
+   !
+   !-----------------------------------------------------------------------
+   subroutine get_nml_rec (domain,me,deltim,iret)
       use stochy_namelist_def
       use mpas_pool_routines
 
@@ -76,7 +97,19 @@ module stoch_nml_rec
       sppt(1) = config_sppt_1
       sppt(2) = config_sppt_2
       sppt(3) = config_sppt_3
+
+      sppt_tau(1) = config_sppt_tau_1
+      sppt_tau(2) = config_sppt_tau_2
+      sppt_tau(3) = config_sppt_tau_3
+
+      sppt_lscale(1) = config_sppt_lscale_1
+      sppt_lscale(2) = config_sppt_lscale_2
+      sppt_lscale(3) = config_sppt_lscale_3
+
+      sppt_logit = config_sppt_logit
+      sppt_sfclimit = config_sppt_sfclimit
       iseed_sppt = config_iseed_sppt
+      stochini = config_stochini
 
       r_earth  =6.3712e+6      ! radius of earth (m)
       tol=0.01  ! tolerance for calculations
@@ -101,8 +134,6 @@ module stoch_nml_rec
         l_min=circ
         do k=1,5
            if (sppt(k).GT.0) l_min=min(sppt_lscale(k),l_min)
-           if (shum(k).GT.0) l_min=min(shum_lscale(k),l_min)
-           if (skeb(k).GT.0) l_min=min(skeb_lscale(k),l_min)
        enddo
        ntrunc=circ/l_min
        if (me==0) print*,'ntrunc calculated from l_min',l_min,ntrunc

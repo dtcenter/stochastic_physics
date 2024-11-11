@@ -1,9 +1,8 @@
 !>@brief The module 'stochy_data_mod' contains the initilization routine that read the stochastic phyiscs
 !! namelist and determins the number of random patterns.
 module stochy_data_mod
-
+ use mpas_pool_routines
 ! set up and initialize stochastic random patterns.
-
  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
  use stochy_namelist_def
@@ -14,11 +13,13 @@ module stochy_data_mod
  use stochy_internal_state_mod
 ! use mersenne_twister_stochy, only : random_seed
  use mersenne_twister, only : random_seed
- use compns_stochy_mod, only : compns_stochy
+! use compns_stochy_mod, only : compns_stochy
+ use stoch_nml_rec
 
  use kinddef, only: kind_phys
 
  implicit none
+
  private
  public :: init_stochdata,init_stochdata_ocn
 
@@ -47,15 +48,15 @@ module stochy_data_mod
 !>@brief The subroutine 'init_stochdata' determins which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
- subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
+ subroutine init_stochdata(domain,mype,nlevs,delt,iret)
 !\callgraph
 
 ! initialize random patterns.  
    use netcdf
    implicit none
-   integer, intent(in) :: nlunit,nlevs
-   character(len=*),  intent(in) :: input_nml_file(:)
-   character(len=64), intent(in) :: fn_nml
+
+   type(domain_type),intent(inout):: domain
+   integer, intent(in) :: mype,nlevs
    real(kind_phys), intent(in) :: delt
    integer, intent(out) :: iret
    real :: ones(6)
@@ -75,7 +76,7 @@ module stochy_data_mod
    iret=0
 ! read in namelist
 
-   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt),iret)
+   call get_nml_rec (domain,mype,real(delt),iret)
   
    if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
    if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
@@ -91,31 +92,10 @@ module stochy_data_mod
      endif
    enddo
    if (is_rootpe()) print *,'nsppt = ',nsppt
-   do n=1,size(shum)
-     if (shum(n) > 0) then
-        nshum=nshum+1
-     else
-        exit
-     endif
-   enddo
-   if (is_rootpe()) print *,'nshum = ',nshum
-   do n=1,size(skeb)
-     if (skeb(n) > 0) then
-        nskeb=nskeb+1
-     else
-        exit
-     endif
-   enddo
-   if (is_rootpe()) print *,'nskeb = ',nskeb
-   ! Draper: nlndp>1 was not properly coded. Hardcode to 1 for now
-   !do n=1,size(lndp_z0)
-   !  if (lndp_z0(n) > 0 .or. lndp_zt(n)>0 .or. lndp_hc(n)>0 .or. &
-   !      lndp_vf(n)>0 .or. lndp_la(n)>0 .or. lndp_al(n)>0) then
-   !     nlndp=nlndp+1
-   !  else
-   !     exit
-   !  endif
-   !enddo
+   if (is_rootpe()) print *,'sppt_lscale = ',sppt_lscale
+   if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
+   if (is_rootpe()) print *,'sppt = ',sppt
+   if (is_rootpe()) print *,'spptint = ',spptint
    if (n_var_lndp>0) nlndp=1
    if (n_var_spp>0) nspp=n_var_spp
    if (is_rootpe())  print *,' nlndp   = ', nlndp

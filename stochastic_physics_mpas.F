@@ -1,5 +1,6 @@
 module stochastic_physics_mpas
   use kinddef, only: kind_phys
+  use mpi_f08
   use mpas_pool_routines
   use mpi_wrapper, only: mype
   implicit none
@@ -48,20 +49,37 @@ module stochastic_physics_mpas
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
-  real(kind=RKIND), dimension(:),pointer:: latCell,lonCell
-  real(kind=RKIND), dimension(:,:),pointer:: st_pat 
-
+  real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
+  integer, dimension(:), pointer :: blksz
+  integer, pointer :: nCells, nVertLevels
+  integer, pointer :: lon_f, lat_g
+  real(kind=RKIND), pointer :: dt
+  integer, save :: nblks
 
 !----------------
 ! Public Entities
 !----------------
 ! functions
-  public stochastic_physics_patinit
-  public stochastic_physics_patadv
+  public stochastic_physics_pattern_init
+  public stochastic_physics_pattern_adv
 
   contains
 
-subroutine stochastic_physics_patinit (domain, ierr)
+   !***********************************************************************
+   !
+   !  routine stochastic_physics_pattern_init
+   !
+   !> \brief   stochastic physics setup routine
+   !> \author  Ning Wang
+   !> \date    Oct 2024
+   !> \details 
+   !>  This routine is intended to setup the initial state for perturbation
+   !>  pattern generation.  
+   !
+   !-----------------------------------------------------------------------
+  subroutine stochastic_physics_pattern_init (domain, ierr)
 
     use stochastic_physics,  only: init_stochastic_physics
     implicit none
@@ -71,80 +89,191 @@ subroutine stochastic_physics_patinit (domain, ierr)
 
 !local variables:
     type(block_type),pointer:: block
-    integer :: maxblk, nblks, n, v
-    logical :: param_update_flag
-    integer, pointer :: nCells, nVertLevels, nThreads
-    integer :: blksz(16)
-    real(kind=RKIND), pointer :: dt
-    real(kind=kind_phys):: sppt_amp
-    real(kind=kind_phys), allocatable :: xlon(:,:)
-    real(kind=kind_phys), allocatable :: xlat(:,:)
+    integer :: maxblk, blk_sz(16)
+    type(MPI_comm) ::  mpi_comm
+    integer :: mpi_root
+    integer :: iret
+    real(kind=kind_phys):: sppt_amp, dtp
+    real(kind=kind_phys), dimension(:), pointer:: ak, bk
+    real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
     
-    print*, 'Enter stochastic_physics_patinit...', mype, domain % dminfo % nprocs
+    print*, 'Enter stochastic_physics_pattern_init( )...', mype, domain % dminfo % nprocs
 
     call mpas_pool_get_config(domain % blocklist % configs, 'config_dt', dt)
     print*, 'config - dt', dt
     print*,'domain%dm_info%comm', domain%dminfo%comm 
     print*,'domain%dm_info%nprocs', domain%dminfo%nprocs  
     print*,'domain%dm_info%my_proc_id', domain%dminfo%my_proc_id  
+
     nblks = 0; maxblk = 1
-    blksz = 0
+    blk_sz = 0
+
     block => domain % blocklist
     do while(associated(block))
       nblks = nblks + 1
       call mpas_pool_get_subpool(block%structs,'mesh' ,mesh)
       call mpas_pool_get_dimension(mesh,'nCells',nCells)
       call mpas_pool_get_dimension(mesh, 'nVertLevels', nVertLevels)
-      blksz(nblks) = nCells
+      call mpas_pool_get_dimension(mesh, 'lon_for', lon_f)
+      call mpas_pool_get_dimension(mesh, 'lat_leg', lat_g)
+      blk_sz(nblks) = nCells
       if (nCells > maxblk) then
         maxblk = nCells
       endif 
       call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
-      call mpas_pool_get_array(tend_physics,'stoch_pattern',st_pat)
-      st_pat(:,:) = real(domain%dminfo%my_proc_id)
-      print*, 'size(st_pat,:) - dimensions:', size(st_pat,1), size(st_pat,2)
-      print*, 'st_pat(:,:), assignment', st_pat(1:10,1)
+      call mpas_pool_get_array(tend_physics,'stoch_pattern',stoch_pat)
+      call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
+      stoch_pat(:,:) = real(domain%dminfo%my_proc_id)
+      print*, 'size(stoch_pat,:) - dimensions:', size(stoch_pat,1), size(stoch_pat,2)
       print*, 'In do while loop, nblks and nCells : ', nblks, nCells
+      print*, 'In do while loop, lonf and latg : ', lon_f, lat_g
       block => block%next
     enddo
 
-!    allocate(xlon(nblks,maxblk))
-!    allocate(xlat(nblks,maxblk))
+    allocate(blksz(nblks))
+    blksz(1:nblks) = blk_sz(1:nblks)
+
+    allocate(lonCell(maxblk))
+    allocate(latCell(maxblk))
+    allocate(xlon(nblks,maxblk))
+    allocate(xlat(nblks,maxblk))
+    allocate(ak(nVertLevels), bk(nVertLevels))
+
+    nblks = 0
+    block => domain % blocklist
+    do while(associated(block))
+      nblks = nblks + 1
+      call mpas_pool_get_subpool(block%structs,'mesh' ,mesh)
+      call mpas_pool_get_array(mesh,'lonCell',lonCell)
+      call mpas_pool_get_array(mesh,'latCell',latCell)
+      call mpas_pool_get_dimension(mesh,'nCells',nCells)
+      xlon(nblks,1:nCells) = lonCell(1:nCells) 
+      xlat(nblks,1:nCells) = latCell(1:nCells) 
+      block => block%next
+    enddo
+
+    print*, 'Call init_stochastic_physics(domain, ...).'
+    mpi_root = 0; mpi_comm = domain%dminfo%comm
+    dtp = dt
     ierr = 0
-!    call init_stochastic_physics(nVertLevels, & ! number of vertical levels
-!         blksz, dt, &  ! physics timestep in seconds   
-!         sppt_amp, & !pjp cloud perturbations (output)
-!         input_nml_file, fn_nml, nlunit, &   ! namelist file
-!         xlon, xlat, do_sppt, do_shum, do_skeb, &
-!         lndp_type, n_var_lndp, & !land perturbation scheme and # of variables
-!         use_zmtnblck, skeb_npass, & ! stochastic physics control variables
-!         lndp_var_list, lndp_prt_list, & ! land perturbation var and print list
-!         n_var_spp, spp_var_list, spp_prt_list, & ! spp var infomation
-!         spp_stddev_cutoff, do_spp,  & ! spp flags                    
-!         ak, bk, nthreads, & ! openMP threads available for ohysics
-!         master, communicator, & ! master atmosphere processor MPI-rank, MPI communicator 
-!         ierr)
-!     if (ierr/=0)  then
-!         write(6,*) 'call to init_stochastic_physics failed'
-!         return
-!     endif
+    call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
+         xlon, xlat, ak, bk, mpi_comm, mpi_root, iret) 
 
-  end subroutine stochastic_physics_patinit
+  end subroutine stochastic_physics_pattern_init
 
-  subroutine stochastic_physics_patadv (domain, levs, ierr)
+   !***********************************************************************
+   !
+   !  routine stochastic_physics_pattern_adv
+   !
+   !> \brief   stochastic physics pattern advance routine 
+   !> \author  Ning Wang
+   !> \date    Oct 2024
+   !> \details 
+   !>  This routine advances the perturbation pattern.  
+   !
+   !-----------------------------------------------------------------------
+  subroutine stochastic_physics_pattern_adv (domain, ierr)
 
     use stochastic_physics,  only: run_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
-    integer, intent(in)  :: levs                 
     integer, intent(out) :: ierr
 
-    integer :: n_threads, nb, maxblk, nblks, n, v
-    logical :: param_update_flag
+    real(kind=kind_phys), dimension(:,:,:),pointer:: st_pat 
 
+    type(block_type),pointer:: block
+    integer :: k, kdt, i, j, pid
+
+    pid = domain%dminfo%my_proc_id  
+    print*, 'Enter stochastic_physics_pattern_adv, proc_id = ', pid
+    kdt = int(dt)
+    nblks = 0
+    block => domain % blocklist
+    do while(associated(block))
+      nblks = nblks + 1
+      block => block%next
+    enddo
+    
+    if (nblks > 1)  then 
+      print*,'There are more than one block, in this MPI rank',  domain%dminfo%my_proc_id  
+    endif
+
+    allocate(st_pat(1, blksz(1), nVertLevels)) 
+    call run_stochastic_physics(nVertLevels, kdt, blksz, st_pat, stoch_pat_gg)
+    do k = 1, nVertLevels
+      stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
+    enddo
+
+    pid = domain%dminfo%my_proc_id  
+    do i = 1, 20
+      do j = 1, 20
+        stoch_pat_gg(pid*20+i,pid*20+j) = real(pid)
+      enddo
+    enddo  
+
+    deallocate(st_pat)
     ierr = 0
 
-  end subroutine stochastic_physics_patadv
+  end subroutine stochastic_physics_pattern_adv
+
+   !***********************************************************************
+   !
+   !  routine stochastic_physics_pattern_apply
+   !
+   !> \brief   stochastic physics application routine
+   !> \author  Ning Wang
+   !> \date    Oct 2024
+   !> \details 
+   !>  This routine applies a perturbation pattern to the specified fields.  
+   !>  It is called to perturb the cell-centered tendencies before they are
+   !>  used in the shallow-water equations.
+   !
+   !>  For velocity components, the pattern is applied to the tendencies 
+   !>  from both PBL and convection schemes, at the cell centers.
+   !
+   !-----------------------------------------------------------------------
+  subroutine stochastic_physics_pattern_apply(domain, num_tends, tend_names, ierr)
+    type(domain_type),intent(in):: domain
+    integer, intent(in) :: num_tends
+    character(len=16), intent(in) :: tend_names(num_tends)
+    integer, intent(out) :: ierr
+
+    real(kind=RKIND), dimension(:,:),pointer:: tend_array 
+
+    type(block_type),pointer:: block
+    integer :: i, j, k, nblks
+    character(len=16) :: tend
+
+    block => domain % blocklist
+    do while(associated(block))
+      nblks = nblks + 1
+      block => block%next
+    enddo
+    
+    if (nblks > 1)  then 
+      print*,'There are more than one block, in this MPI rank',  domain%dminfo%my_proc_id  
+    endif
+
+ ! get AR(1) pertubation_pattern
+
+ ! retrieve the specified tendencies that needs to be perturbed
+   call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
+   do i = 1, num_tends
+     tend = tend_names(i)
+     select case (tend)
+       case ("xxx")
+         call mpas_pool_get_array(tend_physics,'xxx',tend_array)
+ ! apply the patterns (at all levels) to the tendency      
+       case ("yyy")
+         call mpas_pool_get_array(tend_physics,'xxx',tend_array)
+       case default 
+         print*, "The specified tendency is unknown and not perturbed." 
+     end select
+   enddo
+
+   ierr = 0
+
+  end subroutine stochastic_physics_pattern_apply
 
 end module stochastic_physics_mpas

@@ -1,6 +1,7 @@
 !>@brief The module 'get_stochy_pattern_mod' contains the subroutines to retrieve the random pattern in the cubed-sphere grid
 module get_stochy_pattern_mod
  use kinddef
+ use mpas_pool_routines
  use spectral_transforms, only : len_trie_ls,                       &
                                  len_trio_ls, ls_dim, stochy_la2ga,          &
                                  coslat_a, latg, levs, lonf, skeblevs,&
@@ -223,13 +224,14 @@ end subroutine get_random_pattern_vector
 !>@brief The subroutine 'get_random_pattern_scalar' converts spherical harmonics to the gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) scalar field
 subroutine get_random_pattern_scalar(rpattern,npatterns,&
-           gis_stochy,pattern_2d)
+           gis_stochy,pattern_2d, pat_2d_gg)
 
 ! generate a random pattern for stochastic physics
  implicit none
  type(random_pattern), intent(inout)  :: rpattern(npatterns)
  type(stochy_internal_state)          :: gis_stochy
  integer,intent(in)::   npatterns
+
 
  integer i,j,lat,n
  real(kind=kind_dbl_prec), dimension(lonf,gis_stochy%lats_node_a,1):: wrk2d
@@ -241,7 +243,10 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
  integer kmsk0(lonf,gis_stochy%lats_node_a)
  real(kind=kind_dbl_prec) :: pattern_2d(gis_stochy%nx,gis_stochy%ny)
  real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
+! real(kind=4) :: pat_2d_gg(lonf,latg)
+ real(kind=4) :: pat_2d_gg(:,:)
 
+print*, 'size(pat_2d_gg, 1,2)', size(pat_2d_gg,1), size(pat_2d_gg,2)
  kmsk0 = 0
  glolal = 0.
  do n=1,npatterns
@@ -272,6 +277,18 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
       pattern_2d(:,j)=pattern_1d(:)
       end associate
    enddo
+
+   do j = 1,latg
+     do i = 1, lonf / 2
+        pat_2d_gg(i,j) = workg(i+lonf/2,j)
+     enddo
+     do i = lonf / 2, lonf
+        pat_2d_gg(i,j) = workg(i-lonf/2+1,j) 
+     enddo
+   enddo
+      
+!   pat_2d_gg(1:lonf,1:latg) = workg(1:lonf,1:latg)
+
    deallocate(workg)
 
 end subroutine get_random_pattern_scalar
@@ -327,6 +344,8 @@ subroutine get_random_pattern_spp(rpattern,npatterns,&
       end associate
    enddo
  enddo
+! save gaussiaan grid pattern to a variable in netCDF file
+! call write_gg_pat(workg, lonf,latg)  
  deallocate(workg)
 
 end subroutine get_random_pattern_spp
@@ -609,6 +628,31 @@ subroutine write_stoch_restart_ocn(sfile)
    endif
    deallocate(pattern2d)
  end subroutine write_pattern
+
+! subroutine write_gg_pat(workg, lon_f,lat_g)  
+!    real, intent(in) :: workg(lon_f lat_g)   
+!    do while(associated(block))
+!      nblks = nblks + 1
+!      call mpas_pool_get_subpool(block%structs,'mesh' ,mesh)
+!      call mpas_pool_get_dimension(mesh,'nCells',nCells)
+!      call mpas_pool_get_dimension(mesh, 'nVertLevels', nVertLevels)
+!      blk_sz(nblks) = nCells
+!      if (nCells > maxblk) then
+!        maxblk = nCells
+!      endif 
+!      call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
+!      call mpas_pool_get_array(tend_physics,'stoch_pattern',stoch_pat)
+!      stoch_pat(:,:) = real(domain%dminfo%my_proc_id)
+!      print*, 'size(stoch_pat,:) - dimensions:', size(stoch_pat,1), size(stoch_pat,2)
+!      print*, 'In do while loop, nblks and nCells : ', nblks, nCells
+!      block => block%next
+!    enddo
+!
+!    allocate(blksz(nblks))
+!    blksz(1:nblks) = blk_sz(1:nblks)
+!
+! end subroutine write_gg_pat
+
 !>@brief The subroutine 'vrtdivspect_to_uvgrid' converts vorticty and divergence spherical harmonics to 
 ! zonal and meridional winds on the gaussian grid
 !>@details This subroutine is for a 2-D (lat-lon) vector field
