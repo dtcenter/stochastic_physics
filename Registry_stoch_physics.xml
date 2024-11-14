@@ -45,7 +45,7 @@
                      description="sppt length scales"
                      possible_values="Positive values"/>
 
-                <nml_option name="config_sppt_logit" type="logical" default_value=".ture." 
+                <nml_option name="config_sppt_logit" type="logical" default_value=".true." 
                      units="-"
                      description="sppt logit transform for sppt to bounded interval [-1,+1]"
                      possible_values="Logical values"/>
