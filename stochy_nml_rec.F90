@@ -66,7 +66,7 @@ module stoch_nml_rec
 ! logicals
       do_sppt = .false.
       use_zmtnblck = .false.
-      new_lscale = .false.
+      new_lscale = .true.
 ! parameters to control vertical tapering of stochastic physics with
 ! height
       sppt_sigtop1 = 0.1

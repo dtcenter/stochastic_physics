@@ -278,16 +278,16 @@ print*, 'size(pat_2d_gg, 1,2)', size(pat_2d_gg,1), size(pat_2d_gg,2)
       end associate
    enddo
 
-   do j = 1,latg
-     do i = 1, lonf / 2
-        pat_2d_gg(i,j) = workg(i+lonf/2,j)
-     enddo
-     do i = lonf / 2, lonf
-        pat_2d_gg(i,j) = workg(i-lonf/2+1,j) 
-     enddo
-   enddo
+!   do j = 1,latg
+!     do i = 1, lonf / 2
+!        pat_2d_gg(i,j) = workg(i+lonf/2,j)
+!     enddo
+!     do i = lonf / 2, lonf
+!        pat_2d_gg(i,j) = workg(i-lonf/2+1,j) 
+!     enddo
+!   enddo
       
-!   pat_2d_gg(1:lonf,1:latg) = workg(1:lonf,1:latg)
+   pat_2d_gg(1:lonf,1:latg) = workg(1:lonf,1:latg)
 
    deallocate(workg)
 

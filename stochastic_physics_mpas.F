@@ -205,14 +205,14 @@ module stochastic_physics_mpas
       stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
     enddo
 
-    pid = domain%dminfo%my_proc_id  
-    do i = 1, 20
-      do j = 1, 20
-        stoch_pat_gg(pid*20+i,pid*20+j) = real(pid)
-      enddo
-    enddo  
+!    pid = domain%dminfo%my_proc_id  
+!    do i = 1, 20
+!      do j = 1, 20
+!        stoch_pat_gg(pid*20+i,pid*20+j) = real(pid)
+!      enddo
+!    enddo  
 
-    deallocate(st_pat)
+!    deallocate(st_pat)
     ierr = 0
 
   end subroutine stochastic_physics_pattern_adv
@@ -265,6 +265,7 @@ module stochastic_physics_mpas
        case ("xxx")
          call mpas_pool_get_array(tend_physics,'xxx',tend_array)
  ! apply the patterns (at all levels) to the tendency      
+         call apply_pattern(tend_array, stoch_pat)
        case ("yyy")
          call mpas_pool_get_array(tend_physics,'xxx',tend_array)
        case default 
@@ -275,5 +276,13 @@ module stochastic_physics_mpas
    ierr = 0
 
   end subroutine stochastic_physics_pattern_apply
+
+  subroutine apply_pattern(tendency, stoch_pattern)
+    real(kind=RKIND), dimension(nVertLevels,nCells) :: tendency
+    real(kind=RKIND), dimension(nVertLevels,nCells) :: stoch_pattern
+
+    tendency = tendency*stoch_pattern
+
+   end subroutine apply_pattern
 
 end module stochastic_physics_mpas

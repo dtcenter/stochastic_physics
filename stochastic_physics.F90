@@ -154,7 +154,6 @@ implicit none
 integer,                  intent(in) :: levs, kdt
 integer,                  intent(in) :: blksz(:)
 real(kind=kind_phys), intent(inout) :: sppt_wts(:,:,:)
-!real(kind=4), intent(inout) :: sppt_wts_gg(:,:)
 real(kind=RKIND), dimension(:,:),pointer:: sppt_wts_gg  
 
 real(kind_dbl_prec),allocatable :: tmp_wts(:,:)
@@ -165,12 +164,12 @@ logical :: do_advance_pattern
 
 if (.NOT. do_sppt) return
 
-print*,'size(sppt_wts_gg,1), 2',size(sppt_wts_gg,1), size(sppt_wts_gg,2) 
 ! Update number of threads in shared variables in spectral_layout_mod and set block-related variables
 nblks = size(blksz)
 if (is_rootpe()) then
   print*, 'kdt, nssppt, nblks, blkzs(1) =', kdt, nssppt,nblks,blksz(1)
   print*, 'nsppt =', nsppt
+  print*, 'sppt_logit =', sppt_logit
 endif
 
 allocate(tmp_wts(gis_stochy%nx,gis_stochy%ny))
@@ -183,8 +182,8 @@ if (do_sppt) then
             !sppt_wts(blk,1:len,k)=tmp_wts(blk,1:len)*vfact_sppt(k)
             sppt_wts(blk,1:length,k)=tmp_wts(1:length,blk)*vfact_sppt(k)
          ENDDO
-!         if (sppt_logit) sppt_wts(blk,:,:) = (2./(1.+exp(sppt_wts(blk,:,:))))-1.
-!         sppt_wts(blk,:,:) = sppt_wts(blk,:,:)+1.0
+         if (sppt_logit) sppt_wts(blk,:,:) = (2./(1.+exp(sppt_wts(blk,:,:))))-1.
+         sppt_wts(blk,:,:) = sppt_wts(blk,:,:)+1.0
       ENDDO
    endif
 endif
