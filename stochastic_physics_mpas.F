@@ -49,13 +49,14 @@ module stochastic_physics_mpas
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
+  logical, pointer :: do_sppt 
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat  ! stoch(nVertLevels, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
   integer, dimension(:), pointer :: blksz
   integer, pointer :: nCells, nVertLevels
   integer, pointer :: lon_f, lat_g
-  real(kind=RKIND), pointer :: dt
+  real(kind=RKIND), pointer :: dt, sppt_1, sppt_2, sppt_3
   integer, save :: nblks
 
 !----------------
@@ -99,11 +100,24 @@ module stochastic_physics_mpas
     
     print*, 'Enter stochastic_physics_pattern_init( )...', mype, domain % dminfo % nprocs
 
+    call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt)
+
+    if (do_sppt .eqv. .false.) then
+      print*, 'do_sppt is false, do not perturb physics tendencies.'
+      return
+    endif
+
     call mpas_pool_get_config(domain % blocklist % configs, 'config_dt', dt)
     print*, 'config - dt', dt
     print*,'domain%dm_info%comm', domain%dminfo%comm 
     print*,'domain%dm_info%nprocs', domain%dminfo%nprocs  
     print*,'domain%dm_info%my_proc_id', domain%dminfo%my_proc_id  
+    call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_1', sppt_1)
+    call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_2', sppt_2)
+    call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_3', sppt_3)
+    print*, 'config_sppt_1:', sppt_1
+    print*, 'config_sppt_2:', sppt_2
+    print*, 'config_sppt_3:', sppt_3
 
     nblks = 0; maxblk = 1
     blk_sz = 0
@@ -124,9 +138,9 @@ module stochastic_physics_mpas
       call mpas_pool_get_array(tend_physics,'stoch_pattern',stoch_pat)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
       stoch_pat(:,:) = real(domain%dminfo%my_proc_id)
-      print*, 'size(stoch_pat,:) - dimensions:', size(stoch_pat,1), size(stoch_pat,2)
-      print*, 'In do while loop, nblks and nCells : ', nblks, nCells
-      print*, 'In do while loop, lonf and latg : ', lon_f, lat_g
+!      print*, 'size(stoch_pat,:) - dimensions:', size(stoch_pat,1), size(stoch_pat,2)
+!      print*, 'In do while loop, nblks and nCells : ', nblks, nCells
+!      print*, 'In do while loop, lonf and latg : ', lon_f, lat_g
       block => block%next
     enddo
 
@@ -152,7 +166,7 @@ module stochastic_physics_mpas
       block => block%next
     enddo
 
-    print*, 'Call init_stochastic_physics(domain, ...).'
+    print*, 'Call init_stochastic_physics (domain, ...).'
     mpi_root = 0; mpi_comm = domain%dminfo%comm
     dtp = dt
     ierr = 0
@@ -185,8 +199,12 @@ module stochastic_physics_mpas
     type(block_type),pointer:: block
     integer :: k, kdt, i, j, pid
 
+    if (do_sppt .eqv. .false.) return
+
     pid = domain%dminfo%my_proc_id  
-    print*, 'Enter stochastic_physics_pattern_adv, proc_id = ', pid
+    if (pid == 0) print*, 'Enter stochastic_physics_pattern_adv...'
+!    print*, 'Enter stochastic_physics_pattern_adv, proc_id = ', pid
+
     kdt = int(dt)
     nblks = 0
     block => domain % blocklist
@@ -196,7 +214,7 @@ module stochastic_physics_mpas
     enddo
     
     if (nblks > 1)  then 
-      print*,'There are more than one block, in this MPI rank',  domain%dminfo%my_proc_id  
+      print*,'There are more than one block, in this MPI rank!',  domain%dminfo%my_proc_id  
     endif
 
     allocate(st_pat(1, blksz(1), nVertLevels)) 
@@ -212,7 +230,7 @@ module stochastic_physics_mpas
 !      enddo
 !    enddo  
 
-!    deallocate(st_pat)
+    deallocate(st_pat)
     ierr = 0
 
   end subroutine stochastic_physics_pattern_adv
@@ -236,14 +254,20 @@ module stochastic_physics_mpas
   subroutine stochastic_physics_pattern_apply(domain, num_tends, tend_names, ierr)
     type(domain_type),intent(in):: domain
     integer, intent(in) :: num_tends
-    character(len=16), intent(in) :: tend_names(num_tends)
+    character(len=32), intent(in) :: tend_names(num_tends)
     integer, intent(out) :: ierr
 
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
 
     type(block_type),pointer:: block
-    integer :: i, j, k, nblks
-    character(len=16) :: tend
+    integer :: i, j, k, nblks, pid
+    character(len=32) :: tend
+
+    if (do_sppt .eqv. .false.) return
+
+    pid = domain%dminfo%my_proc_id  
+    if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply...'
+!    print*, 'Enter stochastic_physics_pattern_apply, proc_id = ', pid
 
     block => domain % blocklist
     do while(associated(block))
@@ -255,19 +279,36 @@ module stochastic_physics_mpas
       print*,'There are more than one block, in this MPI rank',  domain%dminfo%my_proc_id  
     endif
 
- ! get AR(1) pertubation_pattern
-
- ! retrieve the specified tendencies that needs to be perturbed
-   call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
+ ! retrieve the specified tendencies that needs to be perturbed and
+ ! apply the patterns (at all levels) to the tendency      
    do i = 1, num_tends
      tend = tend_names(i)
-     select case (tend)
-       case ("xxx")
-         call mpas_pool_get_array(tend_physics,'xxx',tend_array)
- ! apply the patterns (at all levels) to the tendency      
+!     print*, "tendency from physics parameterization to be perturbed:", trim(tend)
+     select case (trim(tend))
+       case ("rucuten")
+         call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
          call apply_pattern(tend_array, stoch_pat)
-       case ("yyy")
-         call mpas_pool_get_array(tend_physics,'xxx',tend_array)
+         if (pid == 0) print*, 'apply perturbation pattern to rucuten'
+       case ("rvcuten")
+         call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
+         call apply_pattern(tend_array, stoch_pat)
+         if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
+       case ("rublten")
+         call mpas_pool_get_array(tend_physics,'rublten',tend_array)
+         call apply_pattern(tend_array, stoch_pat)
+         if (pid == 0) print*, 'apply perturbation pattern to rublten'
+       case ("rvblten")
+         call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
+         call apply_pattern(tend_array, stoch_pat)
+         if (pid == 0) print*, 'apply perturbation pattern to rvblten'
+       case ("tend_rtheta_physics")
+         call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
+         call apply_pattern(tend_array, stoch_pat)
+         if (pid == 0) print*, 'apply perturbation pattern to rtheta'
+       case ("tend_rho_physics")
+         call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
+         call apply_pattern(tend_array, stoch_pat)
+         if (pid == 0) print*, 'apply perturbation pattern to rho'
        case default 
          print*, "The specified tendency is unknown and not perturbed." 
      end select

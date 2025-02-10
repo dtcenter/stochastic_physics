@@ -1,5 +1,11 @@
+
         <nml_record name="nam_stochy" in_defaults="true">
                 <!-- NAMELIST VARIABLES ADDED FOR STOCHASTIC PHYSICS: -->
+                <nml_option name="do_sppt" type="logical" default_value="false" 
+                     units="-"
+                     description="logical flag for stochastic physics SPPT"
+                     possible_values="logical values"/>
+
                 <nml_option name="config_sppt_1" type="real" default_value="0.8" 
                      units="-"
                      description="stochastic physics tendency amplitude"

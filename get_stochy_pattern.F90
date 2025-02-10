@@ -246,7 +246,7 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
 ! real(kind=4) :: pat_2d_gg(lonf,latg)
  real(kind=4) :: pat_2d_gg(:,:)
 
-print*, 'size(pat_2d_gg, 1,2)', size(pat_2d_gg,1), size(pat_2d_gg,2)
+! print*, 'size(pat_2d_gg, 1,2)', size(pat_2d_gg,1), size(pat_2d_gg,2)
  kmsk0 = 0
  glolal = 0.
  do n=1,npatterns
@@ -609,8 +609,8 @@ subroutine write_stoch_restart_ocn(sfile)
    call mp_reduce_sum(pattern2d,arrlen)
   !  write only on root process
    if (is_rootpe()) then
-      print*,'writing out random pattern (min/max/size)',&
-      minval(pattern2d),maxval(pattern2d),size(pattern2d)
+!      print*,'writing out random pattern (min/max/size)',&
+!      minval(pattern2d),maxval(pattern2d),size(pattern2d)
       call random_seed(size=isize) ! get seed size
       allocate(isave(isize)) ! get seed
       call random_seed(get=isave,stat=rpattern%rstate) ! write seed

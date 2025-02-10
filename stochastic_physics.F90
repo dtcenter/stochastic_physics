@@ -166,11 +166,11 @@ if (.NOT. do_sppt) return
 
 ! Update number of threads in shared variables in spectral_layout_mod and set block-related variables
 nblks = size(blksz)
-if (is_rootpe()) then
-  print*, 'kdt, nssppt, nblks, blkzs(1) =', kdt, nssppt,nblks,blksz(1)
-  print*, 'nsppt =', nsppt
-  print*, 'sppt_logit =', sppt_logit
-endif
+!if (is_rootpe()) then
+!  print*, 'kdt, nssppt, nblks, blkzs(1) =', kdt, nssppt,nblks,blksz(1)
+!  print*, 'nsppt =', nsppt
+!  print*, 'sppt_logit =', sppt_logit
+!endif
 
 allocate(tmp_wts(gis_stochy%nx,gis_stochy%ny))
 if (do_sppt) then
