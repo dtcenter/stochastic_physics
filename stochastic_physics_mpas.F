@@ -1,4 +1,4 @@
-module stochastic_physics_mpas
+module mpas_stochastic_physics
   use kinddef, only: kind_phys
   use mpi_f08
   use mpas_pool_routines
@@ -25,22 +25,6 @@ module stochastic_physics_mpas
 
   logical, save :: is_initialized = .false.
   integer, save :: lsoil = -999
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: smc
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: stc
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: slc
-  !
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: vfrac
-  !albedo
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: snoalb
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnsf
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: alnwf
-  !emissivity
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: semis
-  !roughness length for land
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll
-
-  !real(kind=kind_phys), dimension(:,:),   allocatable, save :: stype
-  integer, dimension(:,:),   allocatable, save :: stype
 
   ! For cellular automata
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst
@@ -49,7 +33,8 @@ module stochastic_physics_mpas
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
-  logical, pointer :: do_sppt 
+
+  logical, pointer :: do_sppt, do_skeb, do_shum, do_spp 
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat  ! stoch(nVertLevels, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
@@ -65,6 +50,7 @@ module stochastic_physics_mpas
 ! functions
   public stochastic_physics_pattern_init
   public stochastic_physics_pattern_adv
+  public stochastic_physics_pattern_apply
 
   contains
 
@@ -138,9 +124,6 @@ module stochastic_physics_mpas
       call mpas_pool_get_array(tend_physics,'stoch_pattern',stoch_pat)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
       stoch_pat(:,:) = real(domain%dminfo%my_proc_id)
-!      print*, 'size(stoch_pat,:) - dimensions:', size(stoch_pat,1), size(stoch_pat,2)
-!      print*, 'In do while loop, nblks and nCells : ', nblks, nCells
-!      print*, 'In do while loop, lonf and latg : ', lon_f, lat_g
       block => block%next
     enddo
 
@@ -173,6 +156,13 @@ module stochastic_physics_mpas
     call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
          xlon, xlat, ak, bk, mpi_comm, mpi_root, iret) 
 
+    if (iret /= 0) then !initialization failed, set all 'do' flags to false
+      do_sppt = .false.
+!      do_skeb = .false.
+!      do_shum = .false.
+!      do_spp = .false.
+    endif
+
   end subroutine stochastic_physics_pattern_init
 
    !***********************************************************************
@@ -202,8 +192,7 @@ module stochastic_physics_mpas
     if (do_sppt .eqv. .false.) return
 
     pid = domain%dminfo%my_proc_id  
-    if (pid == 0) print*, 'Enter stochastic_physics_pattern_adv...'
-!    print*, 'Enter stochastic_physics_pattern_adv, proc_id = ', pid
+    if (pid == 0) print*, 'Enter stochastic_physics_pattern_adv, pid = ', pid
 
     kdt = int(dt)
     nblks = 0
@@ -222,15 +211,8 @@ module stochastic_physics_mpas
     do k = 1, nVertLevels
       stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
     enddo
-
-!    pid = domain%dminfo%my_proc_id  
-!    do i = 1, 20
-!      do j = 1, 20
-!        stoch_pat_gg(pid*20+i,pid*20+j) = real(pid)
-!      enddo
-!    enddo  
-
     deallocate(st_pat)
+
     ierr = 0
 
   end subroutine stochastic_physics_pattern_adv
@@ -266,8 +248,7 @@ module stochastic_physics_mpas
     if (do_sppt .eqv. .false.) return
 
     pid = domain%dminfo%my_proc_id  
-    if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply...'
-!    print*, 'Enter stochastic_physics_pattern_apply, proc_id = ', pid
+    if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply, pid = ', pid
 
     block => domain % blocklist
     do while(associated(block))
@@ -326,4 +307,4 @@ module stochastic_physics_mpas
 
    end subroutine apply_pattern
 
-end module stochastic_physics_mpas
+end module mpas_stochastic_physics

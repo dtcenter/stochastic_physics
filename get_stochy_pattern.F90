@@ -244,9 +244,9 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
  real(kind=kind_dbl_prec) :: pattern_2d(gis_stochy%nx,gis_stochy%ny)
  real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
 ! real(kind=4) :: pat_2d_gg(lonf,latg)
- real(kind=4) :: pat_2d_gg(:,:)
+! real(kind=4) :: pat_2d_gg(:,:)
+ real(kind=RKIND), dimension(:,:),pointer:: pat_2d_gg  
 
-! print*, 'size(pat_2d_gg, 1,2)', size(pat_2d_gg,1), size(pat_2d_gg,2)
  kmsk0 = 0
  glolal = 0.
  do n=1,npatterns

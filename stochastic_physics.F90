@@ -80,7 +80,10 @@ enddo
 ! replace
 INTTYP=0 ! bilinear interpolation
 call init_stochdata(domain,mype,levs,dtp,iret)
-if (iret .ne. 0) return
+
+if (is_rootpe()) then
+  print*, 'return value from init_stochdata():', iret
+endif
 
 ! update remaining model configuration parameters from namelist
 !use_zmtnblck_out=use_zmtnblck
