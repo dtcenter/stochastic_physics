@@ -142,7 +142,7 @@ if (is_rootpe()) then
 endif
 end subroutine init_stochastic_physics
 
-subroutine run_stochastic_physics(levs, kdt, blksz, sppt_wts, sppt_wts_gg)
+subroutine run_stochastic_physics(levs, kdt, blksz, sppt_wts, sppt_wts_gg, iret)
 
 !\callgraph
 !use stochy_internal_state_mod
@@ -156,6 +156,7 @@ implicit none
 ! Interface variables
 integer,                  intent(in) :: levs, kdt
 integer,                  intent(in) :: blksz(:)
+integer,                  intent(out) :: iret 
 real(kind=kind_phys), intent(inout) :: sppt_wts(:,:,:)
 real(kind=RKIND), dimension(:,:),pointer:: sppt_wts_gg  
 
@@ -169,15 +170,17 @@ if (.NOT. do_sppt) return
 
 ! Update number of threads in shared variables in spectral_layout_mod and set block-related variables
 nblks = size(blksz)
-!if (is_rootpe()) then
-!  print*, 'kdt, nssppt, nblks, blkzs(1) =', kdt, nssppt,nblks,blksz(1)
+if (is_rootpe()) then
+  print*, 'kdt, nssppt, nblks, blkzs(1) =', kdt, nssppt,nblks,blksz(1)
 !  print*, 'nsppt =', nsppt
 !  print*, 'sppt_logit =', sppt_logit
-!endif
+endif
 
+iret = 1
 allocate(tmp_wts(gis_stochy%nx,gis_stochy%ny))
 if (do_sppt) then
    if (mod(kdt,nssppt) == 1 .or. nssppt == 1) then
+     if (is_rootpe()) print*, 'advance pattern', kdt, nssppt
       call get_random_pattern_scalar(rpattern_sppt,nsppt,gis_stochy,tmp_wts,sppt_wts_gg)
       DO blk=1,nblks
          length=blksz(blk)
@@ -188,6 +191,7 @@ if (do_sppt) then
          if (sppt_logit) sppt_wts(blk,:,:) = (2./(1.+exp(sppt_wts(blk,:,:))))-1.
          sppt_wts(blk,:,:) = sppt_wts(blk,:,:)+1.0
       ENDDO
+      iret = 0
    endif
 endif
 deallocate(tmp_wts)

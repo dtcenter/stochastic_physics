@@ -26,6 +26,10 @@ module mpas_stochastic_physics
   logical, save :: is_initialized = .false.
   integer, save :: lsoil = -999
 
+  !roughness length for land
+  real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll
+  integer, dimension(:,:),   allocatable, save :: stype
+
   ! For cellular automata
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: lmsk
@@ -39,7 +43,7 @@ module mpas_stochastic_physics
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat  ! stoch(nVertLevels, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
   integer, dimension(:), pointer :: blksz
-  integer, pointer :: nCells, nVertLevels
+  integer, pointer :: nCells, nEdges, nVertLevels
   integer, pointer :: lon_f, lat_g
   real(kind=RKIND), pointer :: dt, sppt_1, sppt_2, sppt_3
   integer, save :: nblks
@@ -78,7 +82,7 @@ module mpas_stochastic_physics
     type(block_type),pointer:: block
     integer :: maxblk, blk_sz(16)
     type(MPI_comm) ::  mpi_comm
-    integer :: mpi_root
+    integer :: mpi_root, pid
     integer :: iret
     real(kind=kind_phys):: sppt_amp, dtp
     real(kind=kind_phys), dimension(:), pointer:: ak, bk
@@ -113,9 +117,13 @@ module mpas_stochastic_physics
       nblks = nblks + 1
       call mpas_pool_get_subpool(block%structs,'mesh' ,mesh)
       call mpas_pool_get_dimension(mesh,'nCells',nCells)
+      call mpas_pool_get_dimension(mesh,'nEdges',nEdges)
       call mpas_pool_get_dimension(mesh, 'nVertLevels', nVertLevels)
       call mpas_pool_get_dimension(mesh, 'lon_for', lon_f)
       call mpas_pool_get_dimension(mesh, 'lat_leg', lat_g)
+      pid = domain%dminfo%my_proc_id  
+      if (pid == 0) print*, 'nCells, nEdges, nVertLevels:', nCells, nEdges, nVertLevels
+
       blk_sz(nblks) = nCells
       if (nCells > maxblk) then
         maxblk = nCells
@@ -176,15 +184,17 @@ module mpas_stochastic_physics
    !>  This routine advances the perturbation pattern.  
    !
    !-----------------------------------------------------------------------
-  subroutine stochastic_physics_pattern_adv (domain, ierr)
+  subroutine stochastic_physics_pattern_adv (domain, ts_ct, ierr)
 
     use stochastic_physics,  only: run_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
+    integer, intent(in) :: ts_ct
     integer, intent(out) :: ierr
 
     real(kind=kind_phys), dimension(:,:,:),pointer:: st_pat 
+    integer :: iret
 
     type(block_type),pointer:: block
     integer :: k, kdt, i, j, pid
@@ -207,10 +217,17 @@ module mpas_stochastic_physics
     endif
 
     allocate(st_pat(1, blksz(1), nVertLevels)) 
-    call run_stochastic_physics(nVertLevels, kdt, blksz, st_pat, stoch_pat_gg)
-    do k = 1, nVertLevels
-      stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
-    enddo
+    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
+    if (iret == 0) then ! if pattern is advanced (updated)
+      do k = 1, nVertLevels
+        stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
+      enddo
+!    else
+!      do k = 1, nVertLevels
+!        stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
+!        stoch_pat(k,1:nCells) = 1.0   
+!      enddo
+    endif
     deallocate(st_pat)
 
     ierr = 0
@@ -250,6 +267,7 @@ module mpas_stochastic_physics
     pid = domain%dminfo%my_proc_id  
     if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply, pid = ', pid
 
+    nblks = 0
     block => domain % blocklist
     do while(associated(block))
       nblks = nblks + 1

@@ -56,6 +56,7 @@ module stoch_nml_rec
       logical, pointer :: config_sppt_logit
       logical, pointer :: config_sppt_sfclimit
       integer, pointer :: config_iseed_sppt
+      integer, pointer :: config_spptint
       logical, pointer :: config_stochini
 
 !     spectral resolution defintion
@@ -70,6 +71,7 @@ module stoch_nml_rec
       new_lscale = .true.
 ! parameters to control vertical tapering of stochastic physics with
 ! height
+      spptint      = 0
       sppt_sigtop1 = 0.1
       sppt_sigtop2 = 0.025
 ! reduce amplitude of sppt near surface (lowest 2 levels)
@@ -82,6 +84,7 @@ module stoch_nml_rec
 ! retrieve namelist rec
       configPool = domain % blocklist % configs
       call mpas_pool_get_config(configPool, 'do_sppt', config_do_sppt)
+      call mpas_pool_get_config(configPool, 'config_spptint', config_spptint)
       call mpas_pool_get_config(configPool, 'config_sppt_1', config_sppt_1)
       call mpas_pool_get_config(configPool, 'config_sppt_2', config_sppt_2)
       call mpas_pool_get_config(configPool, 'config_sppt_3', config_sppt_3)
@@ -97,6 +100,7 @@ module stoch_nml_rec
       call mpas_pool_get_config(configPool, 'config_stochini', config_stochini)
 
       do_sppt = config_do_sppt
+      spptint = config_spptint
       sppt(1) = config_sppt_1
       sppt(2) = config_sppt_2
       sppt(3) = config_sppt_3
@@ -142,7 +146,7 @@ module stoch_nml_rec
         if (me==0) print*,'ntrunc calculated from l_min',l_min,ntrunc
       endif
      ! ensure lat_s is a mutiple of 4 with a reminader of two
-     ntrunc=INT((ntrunc+1)/four)*four+2
+      ntrunc=INT((ntrunc+1)/four)*four+2
       if (me==0) print*,'NOTE ntrunc adjusted for even nlats',ntrunc
 
 ! set up gaussian grid for ntrunc if not already defined. 
