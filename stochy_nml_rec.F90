@@ -52,11 +52,15 @@ module stoch_nml_rec
       real (kind=RKIND), pointer :: config_sppt_lscale_1
       real (kind=RKIND), pointer :: config_sppt_lscale_2
       real (kind=RKIND), pointer :: config_sppt_lscale_3
+      real (kind=RKIND), pointer :: config_sppt_hgt_top1
+      real (kind=RKIND), pointer :: config_sppt_hgt_top2
       logical, pointer :: config_do_sppt
       logical, pointer :: config_sppt_logit
       logical, pointer :: config_sppt_sfclimit
-      integer, pointer :: config_iseed_sppt
+      integer, pointer :: config_iseed_sppt1, config_iseed_sppt2, config_iseed_sppt3
       integer, pointer :: config_spptint
+
+      logical, pointer :: config_do_skeb
       logical, pointer :: config_stochini
 
 !     spectral resolution defintion
@@ -72,8 +76,8 @@ module stoch_nml_rec
 ! parameters to control vertical tapering of stochastic physics with
 ! height
       spptint      = 0
-      sppt_sigtop1 = 0.1
-      sppt_sigtop2 = 0.025
+      sppt_hgt_top1 = 15000.0
+      sppt_hgt_top2 = 27000.0
 ! reduce amplitude of sppt near surface (lowest 2 levels)
       sppt_sfclimit = .false.
       pbl_taper = (/0.0,0.5,1.0,1.0,1.0,1.0,1.0/)
@@ -96,7 +100,13 @@ module stoch_nml_rec
       call mpas_pool_get_config(configPool, 'config_sppt_lscale_3', config_sppt_lscale_3)
       call mpas_pool_get_config(configPool, 'config_sppt_logit', config_sppt_logit)
       call mpas_pool_get_config(configPool, 'config_sppt_sfclimit', config_sppt_sfclimit)
-      call mpas_pool_get_config(configPool, 'config_iseed_sppt', config_iseed_sppt)
+      call mpas_pool_get_config(configPool, 'config_iseed_sppt1', config_iseed_sppt1)
+      call mpas_pool_get_config(configPool, 'config_iseed_sppt2', config_iseed_sppt2)
+      call mpas_pool_get_config(configPool, 'config_iseed_sppt3', config_iseed_sppt3)
+      call mpas_pool_get_config(configPool, 'config_sppt_hgt_top1', config_sppt_hgt_top1)
+      call mpas_pool_get_config(configPool, 'config_sppt_hgt_top2', config_sppt_hgt_top2)
+
+      call mpas_pool_get_config(configPool, 'do_skeb', config_do_skeb)
       call mpas_pool_get_config(configPool, 'config_stochini', config_stochini)
 
       do_sppt = config_do_sppt
@@ -115,7 +125,14 @@ module stoch_nml_rec
 
       sppt_logit = config_sppt_logit
       sppt_sfclimit = config_sppt_sfclimit
-      iseed_sppt = config_iseed_sppt
+      iseed_sppt(1) = config_iseed_sppt1
+      iseed_sppt(2) = config_iseed_sppt2
+      iseed_sppt(3) = config_iseed_sppt3
+
+      sppt_hgt_top1 = config_sppt_hgt_top1
+      sppt_hgt_top2 = config_sppt_hgt_top2
+
+      do_skeb = config_do_skeb
       stochini = config_stochini
 
       r_earth  =6.3712e+6      ! radius of earth (m)

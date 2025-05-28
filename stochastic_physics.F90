@@ -23,7 +23,7 @@ contains
 !allocates and polulates the necessary arrays
 
 subroutine init_stochastic_physics(domain, levs, blksz, dtp, sppt_amp, &
-         xlon, xlat, ak, bk, mpicomm, mpiroot, iret) 
+         xlon, xlat, zk, mpicomm, mpiroot, iret) 
 !\callgraph
 !use stochy_internal_state_moa
 use stochy_data_mod, only : init_stochdata,gg_lats,gg_lons,nsppt, &
@@ -31,7 +31,7 @@ use stochy_data_mod, only : init_stochdata,gg_lats,gg_lons,nsppt, &
                             vfact_sppt,sl
 use stochy_namelist_def
 use spectral_transforms,only:colrad_a,latg,lonf,skeblevs
-use mpi_wrapper, only : mpi_wrapper_initialize,mype,npes,is_rootpe
+use mpi_wrapper, only : mpi_wrapper_initialize,mype,npes,is_rootpe, mp_bcst
 
 implicit none
 
@@ -45,15 +45,17 @@ real(kind=kind_phys), intent(in)    :: dtp
 real(kind=kind_phys), intent(out)   :: sppt_amp
 real(kind=kind_phys), intent(in)    :: xlon(:,:)
 real(kind=kind_phys), intent(in)    :: xlat(:,:)
-real(kind=kind_phys), intent(in)    :: ak(:), bk(:) 
+!real(kind=kind_phys), intent(in)    :: ak(:), bk(:) 
+real(kind=kind_phys), intent(in)    :: zk(:) 
 integer, intent(out)                :: iret
 
 ! Local variables
 real(kind=kind_phys), parameter     :: con_pi =4.0d0*atan(1.0d0)
 integer :: nblks,len
-real*8 :: PRSI(levs),PRSL(levs),dx
+real*8 :: dx
 real, allocatable :: skeb_vloc(:)
 integer :: k,kflip,latghf,blk,k2,v,i
+integer :: k_top(2)
 
 ! Initialize MPI and OpenMP
 call mpi_wrapper_initialize(mpiroot,mpicomm)
@@ -90,22 +92,38 @@ endif
 
 if  (.NOT. do_sppt) return
 
-allocate(sl(levs))
-do k=1,levs
+!allocate(sl(levs))
+!do k=1,levs
 !   sl(k)= 0.5*(ak(k)/101300.+bk(k)+ak(k+1)/101300.0+bk(k+1)) ! si are now sigmas
-    sl(k)=1.0 - real(k)/real(levs) + 1.0/real(levs)
-enddo
+!    sl(k)=1.0 - real(k)/real(levs) + 1.0/real(levs)
+!enddo
+
+!print*, "zk:", zk
+if (is_rootpe()) then
+  print*, 'sppt_hgt_top1,2:', sppt_hgt_top1, sppt_hgt_top2 
+  call find_ktop(zk, levs+1, sppt_hgt_top1,sppt_hgt_top2,k_top)
+endif
+
+if (is_rootpe()) print*, 'k_top:', k_top
+call mp_bcst(k_top, 2) 
+if (is_rootpe()) print*, 'after broadcast k_top:', k_top
+
 if (do_sppt) then
    allocate(vfact_sppt(levs))
    do k=1,levs
-      if (sl(k) .lt. sppt_sigtop1 .and. sl(k) .gt. sppt_sigtop2) then
-         vfact_sppt(k) = (sl(k)-sppt_sigtop2)/(sppt_sigtop1-sppt_sigtop2)
-      else if (sl(k) .lt. sppt_sigtop2) then
-          vfact_sppt(k) = 0.0
-      else
+      if (k .lt. k_top(1)) then
           vfact_sppt(k) = 1.0
+      elseif (k .gt. k_top(2)) then
+          vfact_sppt(k) = 0.0
+      elseif (k .ge. k_top(1) .and. k .le. k_top(2)) then
+         vfact_sppt(k) = 1.0 - (real(k)-real(k_top(1)))/(real(k_top(2)) - real(k_top(1)))
       endif
    enddo
+
+!if (is_rootpe()) print*,'after vfact_sppt(k) computation:', vfact_sppt
+
+if (is_rootpe()) print*, 'sppt_sfclimit:', sppt_sfclimit
+
    if (sppt_sfclimit) then
        do k=1,7
        vfact_sppt(k)=pbl_taper(k)
@@ -113,11 +131,13 @@ if (do_sppt) then
    endif
    if (is_rootpe()) then
       do k=1,levs
-         print *,'sppt vert profile',k,sl(k),vfact_sppt(k)
+         print *,'sppt vert profile',k,vfact_sppt(k)
       enddo
    endif
    sppt_amp=sqrt(SUM(sppt(1:nsppt)**2))
 endif
+
+!if (is_rootpe()) print*, 'sppt_amp:', sppt_amp
 
 ! get interpolation weights
 ! define gaussian grid lats and lons
@@ -140,6 +160,8 @@ if (is_rootpe()) then
   print*, 'gis_stochy%lats_nodes_a', gis_stochy%lats_nodes_a(:)
   print*, 'gis_stochy%lats_node_a', gis_stochy%lats_node_a
 endif
+
+!if (is_rootpe()) print*, 'exit init_stochastic_physics, iret:', iret
 end subroutine init_stochastic_physics
 
 subroutine run_stochastic_physics(levs, kdt, blksz, sppt_wts, sppt_wts_gg, iret)
@@ -197,5 +219,23 @@ endif
 deallocate(tmp_wts)
 
 end subroutine run_stochastic_physics
+
+subroutine find_ktop(zk, nvlsp1,  hgt_top1, hgt_top2, k_top)
+  real(kind=kind_phys), intent(in) :: zk(nvlsp1), hgt_top1, hgt_top2 
+  integer, intent(in) :: nvlsp1
+  integer, intent(out) :: k_top(2)
+
+  integer :: k
+
+  do k = 1, nvlsp1-1
+    if (zk(k) < hgt_top1 .and. zk(k+1) > hgt_top1) then
+       k_top(1) = k
+    endif
+    if (zk(k) < hgt_top2 .and. zk(k+1) > hgt_top2) then
+       k_top(2) = k+1
+    endif
+  enddo   
+ 
+end subroutine find_ktop
 
 end module stochastic_physics

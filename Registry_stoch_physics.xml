@@ -6,6 +6,11 @@
                      description="logical flag for stochastic physics SPPT"
                      possible_values="logical values"/>
 
+                <nml_option name="do_skeb" type="logical" default_value="false" 
+                     units="-"
+                     description="logical flag for stochastic physics SKEB"
+                     possible_values="logical values"/>
+
                 <nml_option name="config_spptint" type="integer" default_value="0" 
                      units="seconds"
                      description="interval to advance perturbation pattern for SPPT"
@@ -66,10 +71,30 @@
                      description="sppt reduces amplitudes near surface"
                      possible_values="Logical values"/>
 
-                <nml_option name="config_iseed_sppt" type="integer" default_value="3" 
+                <nml_option name="config_iseed_sppt1" type="integer" default_value="3" 
                      units="-"
                      description="sppt seed"
                      possible_values="Positive integer"/>
+
+                <nml_option name="config_iseed_sppt2" type="integer" default_value="0" 
+                     units="-"
+                     description="sppt seed"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_iseed_sppt3" type="integer" default_value="0" 
+                     units="-"
+                     description="sppt seed"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_sppt_hgt_top1" type="real" default_value="15000" 
+                     units="meters"
+                     description="sppt tapering starting height"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_sppt_hgt_top2" type="real" default_value="27000" 
+                     units="meters"
+                     description="sppt tapering ending height"
+                     possible_values="Positive values"/>
 
                 <nml_option name="config_stochini" type="logical" default_value=".false." 
                      units="-"

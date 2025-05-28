@@ -41,9 +41,10 @@ module mpas_stochastic_physics
   logical, pointer :: do_sppt, do_skeb, do_shum, do_spp 
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
   integer, dimension(:), pointer :: blksz
-  integer, pointer :: nCells, nEdges, nVertLevels
+  integer, pointer :: nCells, nEdges, nVertLevels, nVertLevelsP1
   integer, pointer :: lon_f, lat_g
   real(kind=RKIND), pointer :: dt, sppt_1, sppt_2, sppt_3
   integer, save :: nblks
@@ -85,9 +86,11 @@ module mpas_stochastic_physics
     integer :: mpi_root, pid
     integer :: iret
     real(kind=kind_phys):: sppt_amp, dtp
-    real(kind=kind_phys), dimension(:), pointer:: ak, bk
+!    real(kind=kind_phys), dimension(:), pointer:: ak, bk
+    real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
     
+    pid = domain%dminfo%my_proc_id  
     print*, 'Enter stochastic_physics_pattern_init( )...', mype, domain % dminfo % nprocs
 
     call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt)
@@ -98,16 +101,20 @@ module mpas_stochastic_physics
     endif
 
     call mpas_pool_get_config(domain % blocklist % configs, 'config_dt', dt)
-    print*, 'config - dt', dt
-    print*,'domain%dm_info%comm', domain%dminfo%comm 
-    print*,'domain%dm_info%nprocs', domain%dminfo%nprocs  
-    print*,'domain%dm_info%my_proc_id', domain%dminfo%my_proc_id  
+    if (pid == 0) then
+      print*, 'config - dt', dt
+      print*,'domain%dm_info%comm', domain%dminfo%comm 
+      print*,'domain%dm_info%nprocs', domain%dminfo%nprocs  
+      print*,'domain%dm_info%my_proc_id', domain%dminfo%my_proc_id  
+    endif
     call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_1', sppt_1)
     call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_2', sppt_2)
     call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_3', sppt_3)
-    print*, 'config_sppt_1:', sppt_1
-    print*, 'config_sppt_2:', sppt_2
-    print*, 'config_sppt_3:', sppt_3
+    if (pid == 0) then
+      print*, 'config_sppt_1:', sppt_1
+      print*, 'config_sppt_2:', sppt_2
+      print*, 'config_sppt_3:', sppt_3
+    endif
 
     nblks = 0; maxblk = 1
     blk_sz = 0
@@ -119,10 +126,12 @@ module mpas_stochastic_physics
       call mpas_pool_get_dimension(mesh,'nCells',nCells)
       call mpas_pool_get_dimension(mesh,'nEdges',nEdges)
       call mpas_pool_get_dimension(mesh, 'nVertLevels', nVertLevels)
+      call mpas_pool_get_dimension(mesh, 'nVertLevelsP1', nVertLevelsP1)
       call mpas_pool_get_dimension(mesh, 'lon_for', lon_f)
       call mpas_pool_get_dimension(mesh, 'lat_leg', lat_g)
-      pid = domain%dminfo%my_proc_id  
-      if (pid == 0) print*, 'nCells, nEdges, nVertLevels:', nCells, nEdges, nVertLevels
+      if (pid == 0) print*, 'nCells, nEdges, nVertLevels:', nCells, nEdges, nVertLevels, nVertLevelsP1
+
+      call mpas_pool_get_array(mesh,'zgrid',zgrid)
 
       blk_sz(nblks) = nCells
       if (nCells > maxblk) then
@@ -142,7 +151,10 @@ module mpas_stochastic_physics
     allocate(latCell(maxblk))
     allocate(xlon(nblks,maxblk))
     allocate(xlat(nblks,maxblk))
-    allocate(ak(nVertLevels), bk(nVertLevels))
+    allocate(zk(nVertLevelsP1))
+!    allocate(ak(nVertLevels), bk(nVertLevels))
+
+    call get_zk(zgrid, zk)
 
     nblks = 0
     block => domain % blocklist
@@ -157,12 +169,14 @@ module mpas_stochastic_physics
       block => block%next
     enddo
 
-    print*, 'Call init_stochastic_physics (domain, ...).'
+!    if (pid == 0) print*, 'Call init_stochastic_physics (domain, ...).'
     mpi_root = 0; mpi_comm = domain%dminfo%comm
     dtp = dt
     ierr = 0
     call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
-         xlon, xlat, ak, bk, mpi_comm, mpi_root, iret) 
+         xlon, xlat, zk, mpi_comm, mpi_root, iret) 
+
+    if (pid == 0) print*, 'Done init_stochastic_physics (domain, ...).', iret
 
     if (iret /= 0) then !initialization failed, set all 'do' flags to false
       do_sppt = .false.
@@ -170,6 +184,8 @@ module mpas_stochastic_physics
 !      do_shum = .false.
 !      do_spp = .false.
     endif
+ 
+!    print*, 'Exit stochastic_physics_pattern_init', pid
 
   end subroutine stochastic_physics_pattern_init
 
@@ -324,5 +340,27 @@ module mpas_stochastic_physics
     tendency = tendency*stoch_pattern
 
    end subroutine apply_pattern
+
+   subroutine get_zk(zgrid, zk)
+    real(kind=RKIND), dimension(nVertLevelsP1,nCells) :: zgrid
+    real(kind=kind_phys), dimension(nVertlevelsP1) :: zk
+    
+    real(kind=RKIND) :: z_btm
+    integer :: i
+    
+    z_btm = 10000.0 
+    do i = 1, nCells
+      if (zgrid(1,i) == 0) then 
+        zk(:) = zgrid(:,i)
+        exit
+      else
+        if (z_btm > zgrid(1,i)) then
+          zk(:) = zgrid(:,i)
+          z_btm = zgrid(1,i)
+        endif
+      endif
+    enddo
+
+   end subroutine get_zk
 
 end module mpas_stochastic_physics
