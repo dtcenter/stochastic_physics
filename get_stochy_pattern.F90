@@ -1,7 +1,7 @@
 !>@brief The module 'get_stochy_pattern_mod' contains the subroutines to retrieve the random pattern in the cubed-sphere grid
 module get_stochy_pattern_mod
  use kinddef
- use mpas_pool_routines
+ use mpas_kind_types
  use spectral_transforms, only : len_trie_ls,                       &
                                  len_trio_ls, ls_dim, stochy_la2ga,          &
                                  coslat_a, latg, levs, lonf, skeblevs,&
@@ -244,9 +244,9 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
  real(kind=kind_dbl_prec) :: pattern_2d(gis_stochy%nx,gis_stochy%ny)
  real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
 ! real(kind=4) :: pat_2d_gg(lonf,latg)
- real(kind=4) :: pat_2d_gg(:,:)
+! real(kind=4) :: pat_2d_gg(:,:)
+ real(kind=RKIND), dimension(:,:),pointer:: pat_2d_gg  
 
-print*, 'size(pat_2d_gg, 1,2)', size(pat_2d_gg,1), size(pat_2d_gg,2)
  kmsk0 = 0
  glolal = 0.
  do n=1,npatterns
@@ -609,8 +609,8 @@ subroutine write_stoch_restart_ocn(sfile)
    call mp_reduce_sum(pattern2d,arrlen)
   !  write only on root process
    if (is_rootpe()) then
-      print*,'writing out random pattern (min/max/size)',&
-      minval(pattern2d),maxval(pattern2d),size(pattern2d)
+!      print*,'writing out random pattern (min/max/size)',&
+!      minval(pattern2d),maxval(pattern2d),size(pattern2d)
       call random_seed(size=isize) ! get seed size
       allocate(isave(isize)) ! get seed
       call random_seed(get=isave,stat=rpattern%rstate) ! write seed
@@ -628,30 +628,6 @@ subroutine write_stoch_restart_ocn(sfile)
    endif
    deallocate(pattern2d)
  end subroutine write_pattern
-
-! subroutine write_gg_pat(workg, lon_f,lat_g)  
-!    real, intent(in) :: workg(lon_f lat_g)   
-!    do while(associated(block))
-!      nblks = nblks + 1
-!      call mpas_pool_get_subpool(block%structs,'mesh' ,mesh)
-!      call mpas_pool_get_dimension(mesh,'nCells',nCells)
-!      call mpas_pool_get_dimension(mesh, 'nVertLevels', nVertLevels)
-!      blk_sz(nblks) = nCells
-!      if (nCells > maxblk) then
-!        maxblk = nCells
-!      endif 
-!      call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
-!      call mpas_pool_get_array(tend_physics,'stoch_pattern',stoch_pat)
-!      stoch_pat(:,:) = real(domain%dminfo%my_proc_id)
-!      print*, 'size(stoch_pat,:) - dimensions:', size(stoch_pat,1), size(stoch_pat,2)
-!      print*, 'In do while loop, nblks and nCells : ', nblks, nCells
-!      block => block%next
-!    enddo
-!
-!    allocate(blksz(nblks))
-!    blksz(1:nblks) = blk_sz(1:nblks)
-!
-! end subroutine write_gg_pat
 
 !>@brief The subroutine 'vrtdivspect_to_uvgrid' converts vorticty and divergence spherical harmonics to 
 ! zonal and meridional winds on the gaussian grid

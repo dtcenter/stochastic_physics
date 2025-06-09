@@ -18,9 +18,9 @@
       integer skeb_varspect_opt,skeb_npass
       logical sppt_sfclimit
 
-      real(kind=kind_phys) :: skeb_sigtop1,skeb_sigtop2,          &
-                         sppt_sigtop1,sppt_sigtop2,shum_sigefold, &
-                         skeb_vdof
+      real(kind=kind_phys) :: skeb_sigtop1,skeb_sigtop2,sppt_sigtop1,sppt_sigtop2, &
+                              sppt_hgt_top1,sppt_hgt_top2,shum_sigefold, &
+                              skeb_vdof
       real(kind=kind_phys) skeb_diss_smooth,epblint,ocnspptint,sppint,spptint,shumint,skebint,skebnorm
       real(kind=kind_phys) lndpint
       real(kind=kind_phys), dimension(5) :: skeb,skeb_lscale,skeb_tau
