@@ -40,7 +40,7 @@ module mpas_stochastic_physics
 
   logical, pointer :: do_sppt, do_skeb, do_shum, do_spp 
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
-  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
   integer, dimension(:), pointer :: blksz
@@ -138,9 +138,9 @@ module mpas_stochastic_physics
         maxblk = nCells
       endif 
       call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
-      call mpas_pool_get_array(tend_physics,'stoch_pattern',stoch_pat)
+      call mpas_pool_get_array(tend_physics,'stoch_pattern_sppt',stoch_pat_sppt)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
-      stoch_pat(:,:) = real(domain%dminfo%my_proc_id)
+      stoch_pat_sppt(:,:) = real(domain%dminfo%my_proc_id)
       block => block%next
     enddo
 
@@ -236,13 +236,8 @@ module mpas_stochastic_physics
     call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
     if (iret == 0) then ! if pattern is advanced (updated)
       do k = 1, nVertLevels
-        stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
+        stoch_pat_sppt(k,1:nCells) = st_pat(1,1:nCells,k)
       enddo
-!    else
-!      do k = 1, nVertLevels
-!        stoch_pat(k,1:nCells) = st_pat(1,1:nCells,k)
-!        stoch_pat(k,1:nCells) = 1.0   
-!      enddo
     endif
     deallocate(st_pat)
 
@@ -302,27 +297,27 @@ module mpas_stochastic_physics
      select case (trim(tend))
        case ("rucuten")
          call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
-         call apply_pattern(tend_array, stoch_pat)
+         call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rucuten'
        case ("rvcuten")
          call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
-         call apply_pattern(tend_array, stoch_pat)
+         call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
        case ("rublten")
          call mpas_pool_get_array(tend_physics,'rublten',tend_array)
-         call apply_pattern(tend_array, stoch_pat)
+         call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rublten'
        case ("rvblten")
          call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
-         call apply_pattern(tend_array, stoch_pat)
+         call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rvblten'
        case ("tend_rtheta_physics")
          call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
-         call apply_pattern(tend_array, stoch_pat)
+         call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rtheta'
        case ("tend_rho_physics")
          call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
-         call apply_pattern(tend_array, stoch_pat)
+         call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rho'
        case default 
          print*, "The specified tendency is unknown and not perturbed." 

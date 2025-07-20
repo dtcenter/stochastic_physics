@@ -180,7 +180,7 @@ integer,                  intent(in) :: levs, kdt
 integer,                  intent(in) :: blksz(:)
 integer,                  intent(out) :: iret 
 real(kind=kind_phys), intent(inout) :: sppt_wts(:,:,:)
-real(kind=RKIND), dimension(:,:),pointer:: sppt_wts_gg  
+real(kind=RKIND), intent(inout) :: sppt_wts_gg(:,:)  
 
 real(kind_dbl_prec),allocatable :: tmp_wts(:,:)
 integer :: k,v

@@ -243,9 +243,8 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
  integer kmsk0(lonf,gis_stochy%lats_node_a)
  real(kind=kind_dbl_prec) :: pattern_2d(gis_stochy%nx,gis_stochy%ny)
  real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
-! real(kind=4) :: pat_2d_gg(lonf,latg)
-! real(kind=4) :: pat_2d_gg(:,:)
- real(kind=RKIND), dimension(:,:),pointer:: pat_2d_gg  
+! real(kind=RKIND), dimension(:,:),pointer:: pat_2d_gg  
+real(kind=RKIND), intent(inout) :: pat_2d_gg(:,:)  
 
  kmsk0 = 0
  glolal = 0.
@@ -287,7 +286,7 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
 !     enddo
 !   enddo
       
-   pat_2d_gg(1:lonf,1:latg) = workg(1:lonf,1:latg)
+!   pat_2d_gg(1:lonf,1:latg) = workg(1:lonf,1:latg)
 
    deallocate(workg)
 
