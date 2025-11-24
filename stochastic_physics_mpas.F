@@ -2,7 +2,6 @@ module mpas_stochastic_physics
   use kinddef, only: kind_phys
   use mpi_f08
   use mpas_pool_routines
-  use mpi_wrapper, only: mype
   implicit none
 
 !local pointers:
@@ -38,7 +37,11 @@ module mpas_stochastic_physics
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
 
-  logical, pointer :: do_sppt, do_skeb, do_shum, do_spp 
+  logical, pointer :: do_sppt_config, do_skeb_config, do_shum_config, do_spp_config 
+  logical :: do_sppt = .true. 
+  logical :: do_skeb = .true. 
+  logical :: do_shum, do_spp 
+
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
@@ -56,6 +59,7 @@ module mpas_stochastic_physics
   public stochastic_physics_pattern_init
   public stochastic_physics_pattern_adv
   public stochastic_physics_pattern_apply
+  public dosppt
 
   contains
 
@@ -86,17 +90,16 @@ module mpas_stochastic_physics
     integer :: mpi_root, pid
     integer :: iret
     real(kind=kind_phys):: sppt_amp, dtp
-!    real(kind=kind_phys), dimension(:), pointer:: ak, bk
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
     
     pid = domain%dminfo%my_proc_id  
-    print*, 'Enter stochastic_physics_pattern_init( )...', mype, domain % dminfo % nprocs
+    print*, 'Enter stochastic_physics_pattern_init( )...', pid, domain % dminfo % nprocs
 
-    call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt)
+    call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt_config)
 
-    if (do_sppt .eqv. .false.) then
-      print*, 'do_sppt is false, do not perturb physics tendencies.'
+    if (do_sppt_config .eqv. .false.) then
+      if (pid == 0) print*, 'do_sppt is false, do not perturb physics tendencies.'
       return
     endif
 
@@ -357,5 +360,16 @@ module mpas_stochastic_physics
     enddo
 
    end subroutine get_zk
+
+   logical function dosppt(domain)
+     type(domain_type),intent(in):: domain
+
+     dosppt = .false.
+     call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt_config)
+     if (do_sppt_config .eqv. .true. .and. do_sppt .eqv. .true.) then
+       dosppt = .true. 
+     endif 
+
+   end function dosppt
 
 end module mpas_stochastic_physics

@@ -16,17 +16,17 @@
                      description="interval to advance perturbation pattern for SPPT"
                      possible_values="Positive integer"/>
 
-                <nml_option name="config_sppt_1" type="real" default_value="0.8" 
+                <nml_option name="config_sppt_1" type="real" default_value="0.0" 
                      units="-"
                      description="stochastic physics tendency amplitude"
                      possible_values="Positive values, 0.1 - 1.0"/>
 
-                <nml_option name="config_sppt_2" type="real" default_value="0.4" 
+                <nml_option name="config_sppt_2" type="real" default_value="0.0" 
                      units="-"
                      description="stochastic physics tendency amplitude"
                      possible_values="Positive values, 0.1 - 1.0"/>
 
-                <nml_option name="config_sppt_3" type="real" default_value="0.1" 
+                <nml_option name="config_sppt_3" type="real" default_value="0.0" 
                      units="-"
                      description="stochastic physics tendency amplitude"
                      possible_values="Positive values, 0.1 - 1.0"/>
