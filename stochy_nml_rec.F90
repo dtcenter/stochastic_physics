@@ -57,7 +57,9 @@ module stoch_nml_rec
       logical, pointer :: config_do_sppt
       logical, pointer :: config_sppt_logit
       logical, pointer :: config_sppt_sfclimit
-      integer, pointer :: config_iseed_sppt1, config_iseed_sppt2, config_iseed_sppt3
+!      integer, pointer :: config_iseed_sppt1, config_iseed_sppt2, config_iseed_sppt3
+      character (len=StrKIND), pointer :: config_iseed_sppt1, config_iseed_sppt2, config_iseed_sppt3
+      integer io_stat
       integer, pointer :: config_spptint
 
       logical, pointer :: config_do_skeb
@@ -125,9 +127,17 @@ module stoch_nml_rec
 
       sppt_logit = config_sppt_logit
       sppt_sfclimit = config_sppt_sfclimit
-      iseed_sppt(1) = config_iseed_sppt1
-      iseed_sppt(2) = config_iseed_sppt2
-      iseed_sppt(3) = config_iseed_sppt3
+
+      read(config_iseed_sppt1, *, iostat=io_stat) iseed_sppt(1)
+      if (io_stat /= 0) print*, 'String to integer failed, sppt seed 1 IOSTAT value:', io_stat
+      read(config_iseed_sppt2, *, iostat=io_stat) iseed_sppt(2)
+      if (io_stat /= 0) print*, 'String to integer failed, sppt seed 2 IOSTAT value:', io_stat
+      read(config_iseed_sppt3, *, iostat=io_stat) iseed_sppt(3)
+      if (io_stat /= 0) print*, 'String to integer failed, sppt seed 3 IOSTAT value:', io_stat
+
+!      iseed_sppt(1) = config_iseed_sppt1
+!      iseed_sppt(2) = config_iseed_sppt2
+!      iseed_sppt(3) = config_iseed_sppt3
 
       sppt_hgt_top1 = config_sppt_hgt_top1
       sppt_hgt_top2 = config_sppt_hgt_top2
