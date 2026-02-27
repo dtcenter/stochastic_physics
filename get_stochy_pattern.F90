@@ -224,7 +224,8 @@ end subroutine get_random_pattern_vector
 !>@brief The subroutine 'get_random_pattern_scalar' converts spherical harmonics to the gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) scalar field
 subroutine get_random_pattern_scalar(rpattern,npatterns,&
-           gis_stochy,pattern_2d, pat_2d_gg)
+           gis_stochy,pattern_2d)
+!           gis_stochy,pattern_2d, pat_2d_gg)
 
 ! generate a random pattern for stochastic physics
  implicit none
@@ -243,8 +244,7 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
  integer kmsk0(lonf,gis_stochy%lats_node_a)
  real(kind=kind_dbl_prec) :: pattern_2d(gis_stochy%nx,gis_stochy%ny)
  real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
-! real(kind=RKIND), dimension(:,:),pointer:: pat_2d_gg  
-real(kind=RKIND), intent(inout) :: pat_2d_gg(:,:)  
+!real(kind=RKIND), intent(inout) :: pat_2d_gg(:,:)  
 
  kmsk0 = 0
  glolal = 0.

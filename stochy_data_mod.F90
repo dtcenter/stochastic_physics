@@ -13,7 +13,7 @@ module stochy_data_mod
   use stochy_internal_state_mod
 ! use mersenne_twister_stochy, only : random_seed
   use mersenne_twister, only : random_seed
-! use compns_stochy_mod, only : compns_stochy
+  use compns_stochy_mod, only : compns_stochy
   use stoch_nml_rec
 
   use kinddef, only: kind_phys
@@ -33,7 +33,7 @@ module stochy_data_mod
   integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input) 
   integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input) 
   real*8, public,allocatable :: sl(:)
-  real*8, public, parameter :: RADIUS = 6.3712e+6
+  real*8, public, parameter :: radius = 6.3712e+6
 
   real(kind=kind_phys),public, allocatable :: vfact_sppt(:),vfact_shum(:),vfact_skeb(:),vfact_spp(:)
   real(kind=kind_phys),public, allocatable :: skeb_vwts(:,:)
@@ -48,17 +48,30 @@ module stochy_data_mod
 !>@brief The subroutine 'init_stochdata' determins which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
+
+#ifdef UFS_FV3_STOCH
+  subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
+#else
   subroutine init_stochdata(domain,mype,nlevs,delt,iret)
+#endif
 !\callgraph
 
 ! initialize random patterns.  
     use netcdf
     implicit none
 
+#ifdef UFS_FV3_STOCH
+    integer, intent(in) :: nlunit
+    character(len=*),  intent(in) :: input_nml_file(:)
+    character(len=64), intent(in) :: fn_nml
+#else
     type(domain_type),intent(inout):: domain
     integer, intent(in) :: mype,nlevs
+#endif
+
     real(kind_phys), intent(in) :: delt
     integer, intent(out) :: iret
+
     real :: ones(6)
 
     real :: rnn1
@@ -75,8 +88,12 @@ module stochy_data_mod
 
     iret=0
 ! read in namelist
-
+ 
+#ifdef UFS_FV3_STOCH
+    call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
+#else
     call get_nml_rec (domain,mype,real(delt),iret)
+#endif
   
     if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
     if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
@@ -104,14 +121,17 @@ module stochy_data_mod
       return
     endif
 
+#ifdef STOCH_PHYS_DIAG
     if (is_rootpe()) print *,'sppt_lscale = ',sppt_lscale
     if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
-    if (is_rootpe()) print *,'sppt = ',sppt
     if (is_rootpe()) print *,'spptint = ',spptint
+#endif
     if (n_var_lndp>0) nlndp=1
     if (n_var_spp>0) nspp=n_var_spp
+#ifdef STOCH_PHYS_DIAG
     if (is_rootpe())  print *,' nlndp   = ', nlndp
     if (is_rootpe())  print *,' nspp   = ', nspp
+#endif
 
     if (nsppt > 0) allocate(rpattern_sppt(nsppt))
     if (nshum > 0) allocate(rpattern_shum(nshum))
@@ -144,7 +164,9 @@ module stochy_data_mod
    ! no spinup needed if initial patterns are defined correctly.
     if (nsppt > 0) then
       if (is_rootpe()) then
+#ifdef STOCH_PHYS_DIAG
          print *, 'Initialize random pattern for SPPT'
+#endif
          if (stochini) then
             ierr=NF90_INQ_VARID(stochlun,"sppt_seed", varid1)
             if (ierr .NE. 0) then
@@ -160,7 +182,6 @@ module stochy_data_mod
             end if
          endif
       endif
-     print*,'calling init',lonf,latg,jcap
       call patterngenerator_init(sppt_lscale(1:nsppt),spptint,sppt_tau(1:nsppt),sppt(1:nsppt),iseed_sppt,rpattern_sppt, &
            lonf,latg,jcap,gis_stochy%ls_node,nsppt,1,0,new_lscale)
       do n=1,nsppt

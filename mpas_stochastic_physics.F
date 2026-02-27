@@ -2,6 +2,7 @@ module mpas_stochastic_physics
   use kinddef, only: kind_phys
   use mpi_f08
   use mpas_pool_routines
+  use mpas_log, only : mpas_log_write, mpas_log_info
   implicit none
 
 !local pointers:
@@ -19,28 +20,19 @@ module mpas_stochastic_physics
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: shum_wts
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebu_wts
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts
-  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
+!  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
   real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts
 
   logical, save :: is_initialized = .false.
   integer, save :: lsoil = -999
 
   !roughness length for land
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll
-  integer, dimension(:,:),   allocatable, save :: stype
-
-  ! For cellular automata
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: sst
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: lmsk
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: lake
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: condition
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
-  real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
+!  real(kind=kind_phys), dimension(:,:),   allocatable, save :: zorll
+!  integer, dimension(:,:),   allocatable, save :: stype
 
   logical, pointer :: do_sppt_config, do_skeb_config, do_shum_config, do_spp_config 
   logical :: do_sppt = .true. 
-  logical :: do_skeb = .true. 
-  logical :: do_shum, do_spp 
+  logical :: do_skeb, do_shum, do_spp 
 
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
@@ -50,6 +42,10 @@ module mpas_stochastic_physics
   integer, pointer :: nCells, nEdges, nVertLevels, nVertLevelsP1
   integer, pointer :: lon_f, lat_g
   real(kind=RKIND), pointer :: dt, sppt_1, sppt_2, sppt_3
+  real(kind=RKIND), pointer :: sppt_tau_1, sppt_tau_2, sppt_tau_3 
+  real(kind=RKIND), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3 
+  integer, pointer :: spptint
+
   integer, save :: nblks
 
 !----------------
@@ -77,13 +73,14 @@ module mpas_stochastic_physics
    !-----------------------------------------------------------------------
   subroutine stochastic_physics_pattern_init (domain, ierr)
 
-    use stochastic_physics,  only: init_stochastic_physics
+    use stochastic_physics_m,  only: init_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
     integer, intent(out) :: ierr
 
 !local variables:
+    type(mpas_pool_type) :: configPool
     type(block_type),pointer:: block
     integer :: maxblk, blk_sz(16)
     type(MPI_comm) ::  mpi_comm
@@ -94,30 +91,45 @@ module mpas_stochastic_physics
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
     
     pid = domain%dminfo%my_proc_id  
-    print*, 'Enter stochastic_physics_pattern_init( )...', pid, domain % dminfo % nprocs
+    configPool = domain%blocklist%configs
 
-    call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt_config)
+    call mpas_log_write(' ')
+    call mpas_log_write('--- enter stochastic_physics_pattern_init( )')
+
+    call mpas_pool_get_config(configPool, 'do_sppt', do_sppt_config)
 
     if (do_sppt_config .eqv. .false.) then
-      if (pid == 0) print*, 'do_sppt is false, do not perturb physics tendencies.'
+      call mpas_log_write('    do_sppt is false, do not perturb physics tendencies.')
       return
     endif
 
-    call mpas_pool_get_config(domain % blocklist % configs, 'config_dt', dt)
-    if (pid == 0) then
-      print*, 'config - dt', dt
-      print*,'domain%dm_info%comm', domain%dminfo%comm 
-      print*,'domain%dm_info%nprocs', domain%dminfo%nprocs  
-      print*,'domain%dm_info%my_proc_id', domain%dminfo%my_proc_id  
-    endif
-    call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_1', sppt_1)
-    call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_2', sppt_2)
-    call mpas_pool_get_config(domain % blocklist % configs, 'config_sppt_3', sppt_3)
-    if (pid == 0) then
-      print*, 'config_sppt_1:', sppt_1
-      print*, 'config_sppt_2:', sppt_2
-      print*, 'config_sppt_3:', sppt_3
-    endif
+    call mpas_pool_get_config(configPool, 'config_dt', dt)
+    call mpas_pool_get_config(configPool, 'config_spptint', spptint)
+
+    call mpas_log_write('    config_dt = $r', realArgs=(/dt/))
+    call mpas_log_write('    config_spptint = $i', intArgs=(/spptint/))
+    call mpas_log_write('    number of processors = $i', intArgs=(/domain%dminfo%nprocs/))
+
+    call mpas_pool_get_config(configPool, 'config_sppt_1', sppt_1)
+    call mpas_pool_get_config(configPool, 'config_sppt_2', sppt_2)
+    call mpas_pool_get_config(configPool, 'config_sppt_3', sppt_3)
+    call mpas_pool_get_config(configPool, 'config_sppt_tau_1', sppt_tau_1)
+    call mpas_pool_get_config(configPool, 'config_sppt_tau_2', sppt_tau_2)
+    call mpas_pool_get_config(configPool, 'config_sppt_tau_3', sppt_tau_3)
+    call mpas_pool_get_config(configPool, 'config_sppt_lscale_1', sppt_lscale_1)
+    call mpas_pool_get_config(configPool, 'config_sppt_lscale_2', sppt_lscale_2)
+    call mpas_pool_get_config(configPool, 'config_sppt_lscale_3', sppt_lscale_3)
+
+    call mpas_log_write('    config_sppt_1 = $r', realArgs=(/sppt_1/))
+    call mpas_log_write('    config_sppt_2 = $r', realArgs=(/sppt_2/))
+    call mpas_log_write('    config_sppt_3 = $r', realArgs=(/sppt_3/))
+    call mpas_log_write('    config_sppt_tau_1 = $r', realArgs=(/sppt_tau_1/))
+    call mpas_log_write('    config_sppt_tau_2 = $r', realArgs=(/sppt_tau_2/))
+    call mpas_log_write('    config_sppt_tau_3 = $r', realArgs=(/sppt_tau_3/))
+    call mpas_log_write('    config_sppt_lscale_1 = $r', realArgs=(/sppt_lscale_1/))
+    call mpas_log_write('    config_sppt_lscale_2 = $r', realArgs=(/sppt_lscale_2/))
+    call mpas_log_write('    config_sppt_lscale_3 = $r', realArgs=(/sppt_lscale_3/))
+    call mpas_log_write(' ')
 
     nblks = 0; maxblk = 1
     blk_sz = 0
@@ -132,7 +144,6 @@ module mpas_stochastic_physics
       call mpas_pool_get_dimension(mesh, 'nVertLevelsP1', nVertLevelsP1)
       call mpas_pool_get_dimension(mesh, 'lon_for', lon_f)
       call mpas_pool_get_dimension(mesh, 'lat_leg', lat_g)
-      if (pid == 0) print*, 'nCells, nEdges, nVertLevels:', nCells, nEdges, nVertLevels, nVertLevelsP1
 
       call mpas_pool_get_array(mesh,'zgrid',zgrid)
 
@@ -179,7 +190,7 @@ module mpas_stochastic_physics
     call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
          xlon, xlat, zk, mpi_comm, mpi_root, iret) 
 
-    if (pid == 0) print*, 'Done init_stochastic_physics (domain, ...).', iret
+!    if (pid == 0) print*, 'Done init_stochastic_physics (domain, ...).', iret
 
     if (iret /= 0) then !initialization failed, set all 'do' flags to false
       do_sppt = .false.
@@ -205,7 +216,7 @@ module mpas_stochastic_physics
    !-----------------------------------------------------------------------
   subroutine stochastic_physics_pattern_adv (domain, ts_ct, ierr)
 
-    use stochastic_physics,  only: run_stochastic_physics
+    use stochastic_physics_m,  only: run_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
@@ -216,12 +227,22 @@ module mpas_stochastic_physics
     integer :: iret
 
     type(block_type),pointer:: block
-    integer :: k, kdt, i, j, pid
-
-    if (do_sppt .eqv. .false.) return
+    integer :: k, kdt, i, j
+    integer :: pid
+    logical do_pattern
 
     pid = domain%dminfo%my_proc_id  
-    if (pid == 0) print*, 'Enter stochastic_physics_pattern_adv, pid = ', pid
+
+!debug code ...
+!    do_pattern = .false.
+!    if (do_pattern .eqv. .false.) then
+!      stoch_pat_sppt = 1.0
+!      return
+!    endif
+!
+!    if (do_sppt .eqv. .false.) return
+
+    call mpas_log_write('--- enter stochastic_physics_pattern_adv( )')
 
     kdt = int(dt)
     nblks = 0
@@ -232,11 +253,13 @@ module mpas_stochastic_physics
     enddo
     
     if (nblks > 1)  then 
-      print*,'There are more than one block, in this MPI rank!',  domain%dminfo%my_proc_id  
+      pid = domain%dminfo%my_proc_id  
+      call mpas_log_write('--- There are more than one block in this MPI rank! pid = $i', intArgs=(/pid/), messageType=MPAS_LOG_WARN)
     endif
 
     allocate(st_pat(1, blksz(1), nVertLevels)) 
-    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
+    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, iret)
+!    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
     if (iret == 0) then ! if pattern is advanced (updated)
       do k = 1, nVertLevels
         stoch_pat_sppt(k,1:nCells) = st_pat(1,1:nCells,k)
@@ -275,11 +298,12 @@ module mpas_stochastic_physics
     type(block_type),pointer:: block
     integer :: i, j, k, nblks, pid
     character(len=32) :: tend
-
-    if (do_sppt .eqv. .false.) return
-
+     
     pid = domain%dminfo%my_proc_id  
+
+#ifdef STOCH_PHY_DIAG
     if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply, pid = ', pid
+#endif
 
     nblks = 0
     block => domain % blocklist
@@ -289,7 +313,7 @@ module mpas_stochastic_physics
     enddo
     
     if (nblks > 1)  then 
-      print*,'There are more than one block, in this MPI rank',  domain%dminfo%my_proc_id  
+      call mpas_log_write('--- There are more than one block in this MPI rank! pid = $i', intArgs=(/pid/), messageType=MPAS_LOG_WARN)
     endif
 
  ! retrieve the specified tendencies that needs to be perturbed and
@@ -301,27 +325,39 @@ module mpas_stochastic_physics
        case ("rucuten")
          call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
+#ifdef STOCH_PHY_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rucuten'
+#endif
        case ("rvcuten")
          call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
+#ifdef STOCH_PHY_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
+#endif
        case ("rublten")
          call mpas_pool_get_array(tend_physics,'rublten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
+#ifdef STOCH_PHY_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rublten'
+#endif
        case ("rvblten")
          call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
+#ifdef STOCH_PHY_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rvblten'
+#endif
        case ("tend_rtheta_physics")
          call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
+#ifdef STOCH_PHY_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rtheta'
+#endif
        case ("tend_rho_physics")
          call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
+#ifdef STOCH_PHY_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rho'
+#endif
        case default 
          print*, "The specified tendency is unknown and not perturbed." 
      end select

@@ -28,8 +28,8 @@ OBJS = \
         stochy_nml_rec.o \
 	stochy_data_mod.o \
 	get_stochy_pattern.o \
-        stochastic_physics.o \
-        stochastic_physics_mpas.o	
+        stochastic_physics_m.o \
+        mpas_stochastic_physics.o	
 
 stoch_physics_lib: $(OBJS)
 	ar -ru libstochphys.a $(OBJS)

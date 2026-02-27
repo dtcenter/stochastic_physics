@@ -153,14 +153,18 @@ module stochy_patterngenerator_mod
            ! truncate to 4 byte integer
            count_trunc = iscale*(count/iscale)
            count4 = count - count_trunc !+ member_id
+#ifdef STOCH_PHYS_DIAG
            print *,'using seed',count4
+#endif
          else
            !count4 = iseed(np) + member_id
            ! don't rely on compiler to truncate integer(8) to integer(4) on
            ! overflow, do wrap around explicitly.
            !count4 = mod(iseed(np) + member_id + 2147483648_8, 4294967296_8) - 2147483648_8
            count4 = mod(iseed(np) + 2147483648_8, 4294967296_8) - 2147483648_8
+#ifdef STOCH_PHYS_DIAG
            print *,'using seed',count4,iseed(np)!,member_id
+#endif
          endif
       endif
       ! broadcast seed to all tasks.
