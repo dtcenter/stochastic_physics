@@ -130,11 +130,13 @@ if (is_rootpe()) print*, 'sppt_sfclimit:', sppt_sfclimit
        vfact_sppt(k)=pbl_taper(k)
        enddo
    endif
+#ifdef STOCH_PHYS_DIAG
    if (is_rootpe()) then
       do k=1,levs
-!         print *,'sppt vert profile',k,vfact_sppt(k)
+         print *,'sppt vert profile',k,vfact_sppt(k)
       enddo
    endif
+#endif
    sppt_amp=sqrt(SUM(sppt(1:nsppt)**2))
 endif
 
