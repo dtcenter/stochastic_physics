@@ -4,7 +4,7 @@
 !>@brief The module 'stochastic_physics' is for initialization and running of
 !! the stochastic physics random pattern generators
 module stochastic_physics
-use mpi_f08
+use mpi
 use kinddef, only : kind_phys, kind_dbl_prec
 use mpas_pool_routines
 
@@ -39,7 +39,7 @@ implicit none
 
 type(domain_type),intent(inout)     :: domain
 integer,              intent(in)    :: levs, mpiroot
-type(MPI_Comm),       intent(in)    :: mpicomm
+integer,              intent(in)    :: mpicomm
 integer,              intent(in)    :: blksz(:)
 real(kind=kind_phys), intent(in)    :: dtp
 real(kind=kind_phys), intent(out)   :: sppt_amp
