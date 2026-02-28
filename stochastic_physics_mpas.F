@@ -1,6 +1,6 @@
 module mpas_stochastic_physics
   use kinddef, only: kind_phys
-  use mpi_f08
+  use mpi
   use mpas_pool_routines
   implicit none
 
@@ -86,7 +86,7 @@ module mpas_stochastic_physics
 !local variables:
     type(block_type),pointer:: block
     integer :: maxblk, blk_sz(16)
-    type(MPI_comm) ::  mpi_comm
+    integer ::  mpi_comm
     integer :: mpi_root, pid
     integer :: iret
     real(kind=kind_phys):: sppt_amp, dtp

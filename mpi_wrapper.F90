@@ -1,6 +1,6 @@
 module mpi_wrapper
 
-   use mpi_f08
+   use mpi
 
    implicit none
 
@@ -14,7 +14,7 @@ module mpi_wrapper
    integer, save :: mype = -999
    integer, save :: npes = -999
    integer, save :: root = -999
-   type(MPI_Comm), save :: comm
+   integer, save :: comm
    logical, save :: initialized = .false.
 
    integer :: ierror
@@ -79,7 +79,7 @@ contains
 
    subroutine mpi_wrapper_initialize(mpiroot, mpicomm)
       integer, intent(in) :: mpiroot
-      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpicomm
       if (initialized) return
       root = mpiroot
       comm = mpicomm
@@ -93,7 +93,7 @@ contains
       mype = -999
       npes = -999
       root = -999
-      comm%mpi_val = -999
+      comm = -999
       initialized = .false.
    end subroutine mpi_wrapper_finalize
 
