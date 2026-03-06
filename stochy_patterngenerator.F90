@@ -14,9 +14,9 @@ module stochy_patterngenerator_mod
  implicit none
  private
 
- public :: computevarspec, setvarspect,&
+ public :: computevarspec, setvarspect, &
   patterngenerator_init, patterngenerator_destroy, getnoise, &
-  patterngenerator_advance, ndimspec,&
+  patterngenerator_advance, ndimspec, &
   chgres_pattern,computevarspec_r
 
 ! -----------------------------------------------
@@ -198,7 +198,7 @@ module stochy_patterngenerator_mod
    enddo
  end subroutine patterngenerator_destroy
 
-!>@brief The subroutine 'computevarspec' compute the globally integrated 
+!>@brief The subroutine 'computevarspec' compute the globally integrated
 !! variance from complex spectral coefficients
 !>@details this is necessary to ensure the proper global variance
  subroutine computevarspec(rpattern,dataspec,var)
@@ -218,7 +218,7 @@ module stochy_patterngenerator_mod
     enddo
  end subroutine computevarspec
 
-!>@brief The subroutine 'computevarspec_r' compute the globally integrated 
+!>@brief The subroutine 'computevarspec_r' compute the globally integrated
 !! variance from real spectral coefficients
 !>@details this is necessary to ensure the proper global variance
  subroutine computevarspec_r(rpattern,dataspec,var)
@@ -334,7 +334,7 @@ module stochy_patterngenerator_mod
      enddo
      ! scaling factors for spectral coeffs of white noise pattern with unit variance
      if (new_lscale) then
-        !fix for proper lengthscale  
+        !fix for proper lengthscale
         rpattern%varspectrum = ntrunc*exp((rpattern%lengthscale*0.25)**2*rpattern%lap*inv_rerth_sq)
      else
         rpattern%varspectrum = sqrt(ntrunc*exp(rpattern%lengthscale**2*rpattern%lap/(4.*rerth**2)))
@@ -364,6 +364,7 @@ module stochy_patterngenerator_mod
   rpattern%varspectrum1d = rpattern%varspectrum1d/var
 
  end subroutine setvarspect
+
 !>@brief The subroutine 'chgres_pattern' truncates the spherical harmonics if
 !! restarting from a higher-resolution pattern
  subroutine chgres_pattern(pattern2din,pattern2dout,ntruncin,ntruncout)
