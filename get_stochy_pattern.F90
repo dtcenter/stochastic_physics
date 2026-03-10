@@ -22,7 +22,7 @@ module get_stochy_pattern_mod
  implicit none
  private
 
- public  get_random_pattern_vector,get_random_pattern_spp 
+ public  get_random_pattern_vector,get_random_pattern_spp
  public  get_random_pattern_sfc,get_random_pattern_scalar
  public  write_stoch_restart_atm,write_stoch_restart_ocn
  logical :: first_call=.true.
@@ -92,7 +92,7 @@ subroutine get_random_pattern_sfc(rpattern,npatterns,&
 end subroutine get_random_pattern_sfc
 
 
-!>@brief The subroutine 'get_random_pattern_fv3_vect' converts spherical harmonics to a vector on gaussian grid then interpolates to the target grid 
+!>@brief The subroutine 'get_random_pattern_fv3_vect' converts spherical harmonics to a vector on gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) vector field
 subroutine get_random_pattern_vector(rpattern,npatterns,&
            gis_stochy,upattern_3d,vpattern_3d)
@@ -219,7 +219,7 @@ subroutine get_random_pattern_vector(rpattern,npatterns,&
   enddo
   first_call=.false.
 
-end subroutine get_random_pattern_vector   
+end subroutine get_random_pattern_vector
 
 !>@brief The subroutine 'get_random_pattern_scalar' converts spherical harmonics to the gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) scalar field
@@ -628,7 +628,7 @@ subroutine write_stoch_restart_ocn(sfile)
    deallocate(pattern2d)
  end subroutine write_pattern
 
-!>@brief The subroutine 'vrtdivspect_to_uvgrid' converts vorticty and divergence spherical harmonics to 
+!>@brief The subroutine 'vrtdivspect_to_uvgrid' converts vorticty and divergence spherical harmonics to
 ! zonal and meridional winds on the gaussian grid
 !>@details This subroutine is for a 2-D (lat-lon) vector field
  subroutine vrtdivspect_to_uvgrid(&

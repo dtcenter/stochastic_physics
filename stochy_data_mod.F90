@@ -5,13 +5,13 @@ module stochy_data_mod
  use mpas_pool_routines
 ! set up and initialize stochastic random patterns.
 
-  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
+ use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
-  use stochy_namelist_def
+ use stochy_namelist_def
 ! use constants_mod, only : radius
  use mpi_wrapper, only: mp_bcst, is_rootpe, mype
  use stochy_patterngenerator_mod, only: random_pattern, patterngenerator_init,&
-     getnoise, patterngenerator_advance,ndimspec,chgres_pattern,computevarspec_r
+ getnoise, patterngenerator_advance,ndimspec,chgres_pattern,computevarspec_r
  use stochy_internal_state_mod
 ! use mersenne_twister_stochy, only : random_seed
  use mersenne_twister, only : random_seed
@@ -45,22 +45,20 @@ module stochy_data_mod
  integer,public :: INTTYP
  type(stochy_internal_state),public :: gis_stochy,gis_stochy_ocn
 
-  contains
+ contains
 !>@brief The subroutine 'init_stochdata' determines which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
-
 #ifdef UFS_FV3_STOCH
-  subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
+ subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
 #else
-  subroutine init_stochdata(domain,mype,nlevs,delt,iret)
+ subroutine init_stochdata(domain,mype,nlevs,delt,iret)
 #endif
 !\callgraph
 
 ! initialize random patterns.
    use netcdf
    implicit none
-
 #ifdef UFS_FV3_STOCH
    integer, intent(in) :: nlunit
    character(len=*),  intent(in) :: input_nml_file(:)
@@ -69,40 +67,36 @@ module stochy_data_mod
    type(domain_type),intent(inout):: domain
    integer, intent(in) :: mype,nlevs
 #endif
-
    real(kind_phys), intent(in) :: delt
    integer, intent(out) :: iret
-
    real :: ones(6)
 
-    real :: rnn1
-    integer :: nn,k,nm,stochlun,ierr,n
-    integer :: locl,indev,indod,indlsod,indlsev
-    integer :: l,jbasev,jbasod
-    integer :: jcapin,varid1,varid2
-    real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
-    include 'function_indlsod'
-    include 'function_indlsev'
-    include 'netcdf.inc'
-    stochlun=99
-    levs=nlevs
+   real :: rnn1
+   integer :: nn,k,nm,stochlun,ierr,n
+   integer :: locl,indev,indod,indlsod,indlsev
+   integer :: l,jbasev,jbasod
+   integer :: jcapin,varid1,varid2
+   real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
+   include 'function_indlsod'
+   include 'function_indlsev'
+   include 'netcdf.inc'
+   stochlun=99
+   levs=nlevs
 
-    iret=0
+   iret=0
 ! read in namelist
- 
+
 #ifdef UFS_FV3_STOCH
-    call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
+   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
 #else
-    call get_nml_rec (domain,mype,real(delt),iret)
+   call get_nml_rec (domain,mype,real(delt),iret)
 #endif
   
-    if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
-    if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
+   if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
+   if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
 
-    call initialize_spectral(gis_stochy)
-
-    allocate(noise_e(len_trie_ls,2),noise_o(len_trio_ls,2))
-
+   call initialize_spectral(gis_stochy)
+   allocate(noise_e(len_trie_ls,2),noise_o(len_trio_ls,2))
 ! determine number of random patterns to be used for each scheme.
    do n=1,size(sppt)
      if (sppt(n) > 0) then
@@ -123,15 +117,15 @@ module stochy_data_mod
     endif
 
 #ifdef STOCH_PHYS_DIAG
-    if (is_rootpe()) print *,'sppt_lscale = ',sppt_lscale
-    if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
-    if (is_rootpe()) print *,'spptint = ',spptint
+   if (is_rootpe()) print *,'sppt_lscale = ',sppt_lscale
+   if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
+   if (is_rootpe()) print *,'spptint = ',spptint
 #endif
-    if (n_var_lndp>0) nlndp=1
-    if (n_var_spp>0) nspp=n_var_spp
+   if (n_var_lndp>0) nlndp=1
+   if (n_var_spp>0) nspp=n_var_spp
 #ifdef STOCH_PHYS_DIAG
-    if (is_rootpe())  print *,' nlndp   = ', nlndp
-    if (is_rootpe())  print *,' nspp   = ', nspp
+   if (is_rootpe())  print *,' nlndp   = ', nlndp
+   if (is_rootpe())  print *,' nspp   = ', nspp
 #endif
 
    if (nsppt > 0) allocate(rpattern_sppt(nsppt))
