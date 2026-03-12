@@ -22,7 +22,7 @@ module get_stochy_pattern_mod
  implicit none
  private
 
- public  get_random_pattern_vector,get_random_pattern_spp 
+ public  get_random_pattern_vector,get_random_pattern_spp
  public  get_random_pattern_sfc,get_random_pattern_scalar
  public  write_stoch_restart_atm,write_stoch_restart_ocn
  logical :: first_call=.true.
@@ -92,7 +92,7 @@ subroutine get_random_pattern_sfc(rpattern,npatterns,&
 end subroutine get_random_pattern_sfc
 
 
-!>@brief The subroutine 'get_random_pattern_fv3_vect' converts spherical harmonics to a vector on gaussian grid then interpolates to the target grid 
+!>@brief The subroutine 'get_random_pattern_fv3_vect' converts spherical harmonics to a vector on gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) vector field
 subroutine get_random_pattern_vector(rpattern,npatterns,&
            gis_stochy,upattern_3d,vpattern_3d)
@@ -219,13 +219,12 @@ subroutine get_random_pattern_vector(rpattern,npatterns,&
   enddo
   first_call=.false.
 
-end subroutine get_random_pattern_vector   
+end subroutine get_random_pattern_vector
 
 !>@brief The subroutine 'get_random_pattern_scalar' converts spherical harmonics to the gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) scalar field
 subroutine get_random_pattern_scalar(rpattern,npatterns,&
            gis_stochy,pattern_2d)
-!           gis_stochy,pattern_2d, pat_2d_gg)
 
 ! generate a random pattern for stochastic physics
  implicit none
@@ -244,14 +243,12 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
  integer kmsk0(lonf,gis_stochy%lats_node_a)
  real(kind=kind_dbl_prec) :: pattern_2d(gis_stochy%nx,gis_stochy%ny)
  real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
-!real(kind=RKIND), intent(inout) :: pat_2d_gg(:,:)  
 
  kmsk0 = 0
  glolal = 0.
  do n=1,npatterns
     call patterngenerator_advance(rpattern(n),1,.false.)
-    call scalarspect_to_gaugrid(rpattern(n),gis_stochy,   &
-         wrk2d,1)
+    call scalarspect_to_gaugrid(rpattern(n),gis_stochy, wrk2d,1)
     glolal = glolal + wrk2d(:,:,1)
  enddo
 
@@ -276,18 +273,6 @@ subroutine get_random_pattern_scalar(rpattern,npatterns,&
       pattern_2d(:,j)=pattern_1d(:)
       end associate
    enddo
-
-!   do j = 1,latg
-!     do i = 1, lonf / 2
-!        pat_2d_gg(i,j) = workg(i+lonf/2,j)
-!     enddo
-!     do i = lonf / 2, lonf
-!        pat_2d_gg(i,j) = workg(i-lonf/2+1,j) 
-!     enddo
-!   enddo
-      
-!   pat_2d_gg(1:lonf,1:latg) = workg(1:lonf,1:latg)
-
    deallocate(workg)
 
 end subroutine get_random_pattern_scalar
@@ -343,8 +328,6 @@ subroutine get_random_pattern_spp(rpattern,npatterns,&
       end associate
    enddo
  enddo
-! save gaussiaan grid pattern to a variable in netCDF file
-! call write_gg_pat(workg, lonf,latg)  
  deallocate(workg)
 
 end subroutine get_random_pattern_spp
@@ -608,8 +591,8 @@ subroutine write_stoch_restart_ocn(sfile)
    call mp_reduce_sum(pattern2d,arrlen)
   !  write only on root process
    if (is_rootpe()) then
-!      print*,'writing out random pattern (min/max/size)',&
-!      minval(pattern2d),maxval(pattern2d),size(pattern2d)
+      print*,'writing out random pattern (min/max/size)',&
+      minval(pattern2d),maxval(pattern2d),size(pattern2d)
       call random_seed(size=isize) ! get seed size
       allocate(isave(isize)) ! get seed
       call random_seed(get=isave,stat=rpattern%rstate) ! write seed
@@ -627,8 +610,7 @@ subroutine write_stoch_restart_ocn(sfile)
    endif
    deallocate(pattern2d)
  end subroutine write_pattern
-
-!>@brief The subroutine 'vrtdivspect_to_uvgrid' converts vorticty and divergence spherical harmonics to 
+!>@brief The subroutine 'vrtdivspect_to_uvgrid' converts vorticty and divergence spherical harmonics to
 ! zonal and meridional winds on the gaussian grid
 !>@details This subroutine is for a 2-D (lat-lon) vector field
  subroutine vrtdivspect_to_uvgrid(&

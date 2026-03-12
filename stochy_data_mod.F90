@@ -1,115 +1,110 @@
 !>@brief The module 'stochy_data_mod' contains the initilization routine that read the stochastic phyiscs
-!! namelist and determins the number of random patterns.
+!! namelist and determines the number of random patterns.
 module stochy_data_mod
-  use mpas_pool_routines
+
+ use mpas_pool_routines
 ! set up and initialize stochastic random patterns.
-  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
+
+ use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
-  use stochy_namelist_def
+ use stochy_namelist_def
 ! use constants_mod, only : radius
-  use mpi_wrapper, only: mp_bcst, is_rootpe, mype
-  use stochy_patterngenerator_mod, only: random_pattern, patterngenerator_init,&
-      getnoise, patterngenerator_advance,ndimspec,chgres_pattern,computevarspec_r
-  use stochy_internal_state_mod
+ use mpi_wrapper, only: mp_bcst, is_rootpe, mype
+ use stochy_patterngenerator_mod, only: random_pattern, patterngenerator_init,&
+ getnoise, patterngenerator_advance,ndimspec,chgres_pattern,computevarspec_r
+ use stochy_internal_state_mod
 ! use mersenne_twister_stochy, only : random_seed
-  use mersenne_twister, only : random_seed
-  use compns_stochy_mod, only : compns_stochy
-  use stoch_nml_rec
+ use mersenne_twister, only : random_seed
+ use compns_stochy_mod, only : compns_stochy
+ use stoch_nml_rec
 
-  use kinddef, only: kind_phys
+ use kinddef, only: kind_phys
 
-  implicit none
+ implicit none
+ private
+ public :: init_stochdata,init_stochdata_ocn
 
-  private
-  public :: init_stochdata,init_stochdata_ocn
-
-  type(random_pattern), public, save, allocatable, dimension(:) :: &
+ type(random_pattern), public, save, allocatable, dimension(:) :: &
        rpattern_sppt,rpattern_shum,rpattern_skeb, rpattern_sfc,rpattern_epbl1,rpattern_epbl2,rpattern_ocnsppt,rpattern_spp
-  integer, public :: nepbl=0
-  integer, public :: nocnsppt=0
-  integer, public :: nsppt=0
-  integer, public :: nshum=0
-  integer, public :: nskeb=0
-  integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input) 
-  integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input) 
-  real*8, public,allocatable :: sl(:)
-  real*8, public, parameter :: radius = 6.3712e+6
+ integer, public :: nepbl=0
+ integer, public :: nocnsppt=0
+ integer, public :: nsppt=0
+ integer, public :: nshum=0
+ integer, public :: nskeb=0
+ integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input)
+ integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input)
+ real*8, public,allocatable :: sl(:)
+ real*8, public, parameter :: radius = 6.3712e+6
 
-  real(kind=kind_phys),public, allocatable :: vfact_sppt(:),vfact_shum(:),vfact_skeb(:),vfact_spp(:)
-  real(kind=kind_phys),public, allocatable :: skeb_vwts(:,:)
-  integer                 ,public, allocatable :: skeb_vpts(:,:)
-  real(kind=kind_dbl_prec),public, allocatable :: gg_lats(:),gg_lons(:)
-  real(kind=kind_dbl_prec),public :: wlon,rnlat,rad2deg
-  real(kind=kind_phys),public, allocatable :: skebu_save(:,:,:),skebv_save(:,:,:)
-  integer,public :: INTTYP
-  type(stochy_internal_state),public :: gis_stochy,gis_stochy_ocn
+ real(kind=kind_phys),public, allocatable :: vfact_sppt(:),vfact_shum(:),vfact_skeb(:),vfact_spp(:)
+ real(kind=kind_phys),public, allocatable :: skeb_vwts(:,:)
+ integer                 ,public, allocatable :: skeb_vpts(:,:)
+ real(kind=kind_dbl_prec),public, allocatable :: gg_lats(:),gg_lons(:)
+ real(kind=kind_dbl_prec),public :: wlon,rnlat,rad2deg
+ real(kind=kind_phys),public, allocatable :: skebu_save(:,:,:),skebv_save(:,:,:)
+ integer,public :: INTTYP
+ type(stochy_internal_state),public :: gis_stochy,gis_stochy_ocn
 
-  contains
-!>@brief The subroutine 'init_stochdata' determins which stochastic physics
+ contains
+!>@brief The subroutine 'init_stochdata' determines which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
-
 #ifdef UFS_FV3_STOCH
-  subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
+ subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
 #else
-  subroutine init_stochdata(domain,mype,nlevs,delt,iret)
+ subroutine init_stochdata(domain,mype,nlevs,delt,iret)
 #endif
 !\callgraph
 
-! initialize random patterns.  
-    use netcdf
-    implicit none
-
+! initialize random patterns.
+   use netcdf
+   implicit none
 #ifdef UFS_FV3_STOCH
-    integer, intent(in) :: nlunit
-    character(len=*),  intent(in) :: input_nml_file(:)
-    character(len=64), intent(in) :: fn_nml
+   integer, intent(in) :: nlunit
+   character(len=*),  intent(in) :: input_nml_file(:)
+   character(len=64), intent(in) :: fn_nml
 #else
-    type(domain_type),intent(inout):: domain
-    integer, intent(in) :: mype,nlevs
+   type(domain_type),intent(inout):: domain
+   integer, intent(in) :: mype,nlevs
 #endif
+   real(kind_phys), intent(in) :: delt
+   integer, intent(out) :: iret
+   real :: ones(6)
 
-    real(kind_phys), intent(in) :: delt
-    integer, intent(out) :: iret
+   real :: rnn1
+   integer :: nn,k,nm,stochlun,ierr,n
+   integer :: locl,indev,indod,indlsod,indlsev
+   integer :: l,jbasev,jbasod
+   integer :: jcapin,varid1,varid2
+   real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
+   include 'function_indlsod'
+   include 'function_indlsev'
+   include 'netcdf.inc'
+   stochlun=99
+   levs=nlevs
 
-    real :: ones(6)
-
-    real :: rnn1
-    integer :: nn,k,nm,stochlun,ierr,n
-    integer :: locl,indev,indod,indlsod,indlsev
-    integer :: l,jbasev,jbasod
-    integer :: jcapin,varid1,varid2
-    real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
-    include 'function_indlsod'
-    include 'function_indlsev'
-    include 'netcdf.inc'
-    stochlun=99
-    levs=nlevs
-
-    iret=0
+   iret=0
 ! read in namelist
- 
+
 #ifdef UFS_FV3_STOCH
-    call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
+   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
 #else
-    call get_nml_rec (domain,mype,real(delt),iret)
+   call get_nml_rec (domain,mype,real(delt),iret)
 #endif
   
-    if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
-    if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
+   if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.
+   if ( (.NOT. do_sppt) .AND. (.NOT. do_shum) .AND. (.NOT. do_skeb)  .AND. (lndp_type==0) .AND. (.NOT. do_spp)) return
 
-    call initialize_spectral(gis_stochy)
-
-    allocate(noise_e(len_trie_ls,2),noise_o(len_trio_ls,2))
-
+   call initialize_spectral(gis_stochy)
+   allocate(noise_e(len_trie_ls,2),noise_o(len_trio_ls,2))
 ! determine number of random patterns to be used for each scheme.
-    do n=1,size(sppt)
-      if (sppt(n) > 0) then
+   do n=1,size(sppt)
+     if (sppt(n) > 0) then
         nsppt=nsppt+1
-      else
+     else
         exit
-      endif
-    enddo
+     endif
+   enddo
 
     if (nsppt == 0) then
       do_sppt = .false.
@@ -122,27 +117,26 @@ module stochy_data_mod
     endif
 
 #ifdef STOCH_PHYS_DIAG
-    if (is_rootpe()) print *,'sppt_lscale = ',sppt_lscale
-    if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
-    if (is_rootpe()) print *,'spptint = ',spptint
+   if (is_rootpe()) print *,'sppt_lscale = ',sppt_lscale
+   if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
+   if (is_rootpe()) print *,'spptint = ',spptint
 #endif
-    if (n_var_lndp>0) nlndp=1
-    if (n_var_spp>0) nspp=n_var_spp
+   if (n_var_lndp>0) nlndp=1
+   if (n_var_spp>0) nspp=n_var_spp
 #ifdef STOCH_PHYS_DIAG
-    if (is_rootpe())  print *,' nlndp   = ', nlndp
-    if (is_rootpe())  print *,' nspp   = ', nspp
+   if (is_rootpe())  print *,' nlndp   = ', nlndp
+   if (is_rootpe())  print *,' nspp   = ', nspp
 #endif
 
-    if (nsppt > 0) allocate(rpattern_sppt(nsppt))
-    if (nshum > 0) allocate(rpattern_shum(nshum))
-    if (nskeb > 0) allocate(rpattern_skeb(nskeb))
-
+   if (nsppt > 0) allocate(rpattern_sppt(nsppt))
+   if (nshum > 0) allocate(rpattern_shum(nshum))
+   if (nskeb > 0) allocate(rpattern_skeb(nskeb))
    ! mg, sfc perts
-    if (nlndp > 0) allocate(rpattern_sfc(nlndp))
-    if (nspp > 0) allocate(rpattern_spp(nspp))
+   if (nlndp > 0) allocate(rpattern_sfc(nlndp))
+   if (nspp > 0) allocate(rpattern_spp(nspp))
 
 !  if stochini is true, then read in pattern from a file
-    if (is_rootpe()) then
+   if (is_rootpe()) then
       if (stochini) then
          print*,'opening stoch_ini'
          !OPEN(stochlun,file='INPUT/atm_stoch.res.bin',form='unformatted',iostat=ierr,status='old')
@@ -160,9 +154,9 @@ module stochy_data_mod
          end if
          print*,'ntrunc read in',jcapin
       endif
-    endif
+   endif
    ! no spinup needed if initial patterns are defined correctly.
-    if (nsppt > 0) then
+   if (nsppt > 0) then
       if (is_rootpe()) then
 #ifdef STOCH_PHYS_DIAG
          print *, 'Initialize random pattern for SPPT'
@@ -371,7 +365,7 @@ module stochy_data_mod
             gis_stochy%kenorm_o(indlsod(jcap+1,l)) = 0.
          endif
       enddo
-      
+
    endif ! skeb > 0
 ! mg, sfc-perts
    if (nlndp > 0) then
@@ -497,11 +491,11 @@ module stochy_data_mod
    integer, intent(in) :: nlevs
    real, intent(in) :: delt
    integer, intent(out) :: iret
-   
+
    integer :: nn,nm,stochlun,n,jcapin
    integer :: l,jbasev,jbasod
    integer :: indev,indod,indlsod,indlsev,varid1,varid2,varid3,varid4,ierr
-   
+
    real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
    include 'function_indlsod'
    include 'function_indlsev'
@@ -533,7 +527,7 @@ module stochy_data_mod
      endif
    enddo
 
-   if (nepbl > 0) then 
+   if (nepbl > 0) then
       allocate(rpattern_epbl1(nepbl))
       allocate(rpattern_epbl2(nepbl))
    endif
@@ -629,7 +623,7 @@ module stochy_data_mod
                rpattern_epbl1(n)%spec_o(nn,2,1) = rpattern_epbl1(n)%stdev*rpattern_epbl1(n)%spec_o(nn,2,1)*rpattern_epbl1(n)%varspectrum(nm)
             enddo
             call patterngenerator_advance(rpattern_epbl1(n),1,.false.)
-         
+
             call getnoise(rpattern_epbl2(n),noise_e,noise_o)
             do nn=1,len_trie_ls
                rpattern_epbl2(n)%spec_e(nn,1,1)=noise_e(nn,1)
