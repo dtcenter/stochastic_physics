@@ -56,18 +56,20 @@ module compns_stochy_mod
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
       namelist /nam_stochy/ntrunc,lon_s,lat_s,sppt,sppt_tau,sppt_lscale,sppt_logit, &
-      iseed_shum,iseed_sppt,shum,shum_tau,&
-      shum_lscale,stochini,skeb_varspect_opt,sppt_sfclimit, &
-      skeb,skeb_tau,skeb_vdof,skeb_lscale,iseed_skeb,skeb_vfilt,skeb_diss_smooth, &
-      skeb_sigtop1,skeb_sigtop2,skebnorm,sppt_sigtop1,sppt_sigtop2,&
-      shum_sigefold,spptint,shumint,skebint,skeb_npass,use_zmtnblck,new_lscale, &
-      epbl,epbl_lscale,epbl_tau,iseed_epbl,                                    &
-      ocnsppt,ocnsppt_lscale,ocnsppt_tau,iseed_ocnsppt,pbl_taper
+      iseed_shum,iseed_sppt,shum,shum_tau,                                          &
+      shum_lscale,stochini,skeb_varspect_opt,sppt_sfclimit,                         &
+      skeb,skeb_tau,skeb_vdof,skeb_lscale,iseed_skeb,skeb_vfilt,skeb_diss_smooth,   &
+      skeb_sigtop1,skeb_sigtop2,skebnorm,sppt_sigtop1,sppt_sigtop2,                 &
+      shum_sigefold,spptint,shumint,skebint,skeb_npass,use_zmtnblck,new_lscale,     &
+      epbl,epbl_lscale,epbl_tau,iseed_epbl,                                         &
+      ocnsppt,ocnsppt_lscale,ocnsppt_tau,iseed_ocnsppt,pbl_taper,                   &  
+      ocnskeb,ocnskeb_lscale,ocnskeb_tau,iseed_ocnskeb
+
       namelist /nam_sfcperts/lndp_type,lndp_model_type, lndp_var_list, lndp_prt_list, & 
-                            iseed_lndp, lndp_tau,lndp_lscale 
+                            iseed_lndp,lndpint,lndp_tau,lndp_lscale 
 !     For SPP physics parameterization perterbations
       namelist /nam_sppperts/spp_var_list, spp_prt_list, iseed_spp, &
-      spp_tau,spp_lscale,spp_sigtop1, spp_sigtop2,spp_stddev_cutoff
+      sppint,spp_tau,spp_lscale,spp_sigtop1,spp_sigtop2,spp_stddev_cutoff
 
       rerth  =6.3712e+6      ! radius of earth (m)
       tol=0.01  ! tolerance for calculations
@@ -126,7 +128,7 @@ module compns_stochy_mod
       shum_tau         = -999.
       skeb_tau         = -999.
       skeb_vdof        = 5 ! proxy for vertical correlation, 5 is close to 40 passes of the 1-2-1 filter in the GFS
-      skebnorm         = 0  ! 0 - random pattern is stream function, 1- pattern is kenorm, 2- pattern is vorticity
+      skebnorm         = 0  ! 0 - random pattern is stream function, 1- pattern is kenorm, 2- pattern is vorticity, 3- normalized following Berner et al. 2009
       sppt_lscale      = -999.  ! length scales
       shum_lscale      = -999.
       skeb_lscale      = -999.
@@ -156,6 +158,8 @@ module compns_stochy_mod
       spp_tau     = -999.       ! time scales
       spp_stddev_cutoff = 0     ! cutoff/limit for std-dev (zero==no limit applied)
       iseed_spp   = 0           ! random seeds (if 0 use system clock)
+      sppint      = 0           ! SPP interval in seconds
+      lndpint     = 0           ! lndp interval in seconds
 
 #ifdef INTERNAL_FILE_NML
       read(input_nml_file, nml=nam_stochy)
@@ -178,6 +182,7 @@ module compns_stochy_mod
       rewind (nlunit)
       open (unit=nlunit, file=fn_nml, action='READ', status='OLD', iostat=ios)
       read(nlunit,nam_sppperts)
+      close(nlunit)
 #endif
 
       if (me == 0) then
@@ -212,6 +217,9 @@ module compns_stochy_mod
             skeb=skeb*1.111e-9*sqrt(deltim)
          endif
       ENDIF
+      IF (spp_prt_list(1) > 0 ) THEN
+         do_spp=.true.
+      ENDIF
 !    compute frequencty to estimate dissipation timescale
       IF (do_skeb) THEN
           IF (skebint == 0.) skebint=deltim
@@ -240,6 +248,26 @@ module compns_stochy_mod
             return
           ENDIF
       ENDIF
+      IF (do_spp) THEN
+          IF (sppint == 0.) sppint=deltim
+          nsspp=nint(sppint/deltim)                                ! sppint in seconds
+          IF(nsspp<=0 .or. abs(nsspp-sppint/deltim)>tol) THEN
+             WRITE(0,*) "SPP interval is invalid",sppint
+            iret=9
+            return
+          ENDIF
+      ENDIF
+
+      IF (lndp_type > 0) THEN
+          IF (lndpint == 0.) lndpint=deltim
+          nslndp=nint(lndpint/deltim)       
+          IF(nslndp<=0 .or. abs(nslndp-lndpint/deltim)>tol) THEN
+             WRITE(0,*) "lndp interval is invalid",lndpint
+            iret=9
+            return
+          ENDIF
+      ENDIF
+
 !calculate ntrunc if not supplied
      if (ntrunc .LT. 1) then  
         if (me==0) print*,'ntrunc not supplied, calculating'
@@ -424,29 +452,29 @@ module compns_stochy_mod
 
 
       use stochy_namelist_def
-!      use mpp_mod ,only: mpp_pe,mpp_root_pe
-      use mpi_wrapper, only: is_rootpe
+      use mpp_mod ,only: mpp_pe,mpp_root_pe
 
       implicit none
 
 
-      real,                 intent(in)  :: deltim
+      real(kind=kind_dbl_prec),              intent(in)  :: deltim
       integer,              intent(out) :: iret
-      real tol,l_min
-      real :: rerth,circ
+      real(kind=kind_dbl_prec) tol,l_min
+      real(kind=kind_dbl_prec) :: rerth,circ
       integer k,ios,nlunit
       integer,parameter :: four=4
 
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
       namelist /nam_stochy/ntrunc,lon_s,lat_s,sppt,sppt_tau,sppt_lscale,sppt_logit, &
-      iseed_shum,iseed_sppt,shum,shum_tau, &
-      shum_lscale,stochini,skeb_varspect_opt,sppt_sfclimit, &
-      skeb,skeb_tau,skeb_vdof,skeb_lscale,iseed_skeb,skeb_vfilt,skeb_diss_smooth, &
-      skeb_sigtop1,skeb_sigtop2,skebnorm,sppt_sigtop1,sppt_sigtop2,&
-      shum_sigefold,spptint,shumint,skebint,skeb_npass,use_zmtnblck,new_lscale, &
-      epbl,epbl_lscale,epbl_tau,iseed_epbl,                                    &
-      ocnsppt,ocnsppt_lscale,ocnsppt_tau,iseed_ocnsppt,pbl_taper
+      iseed_shum,iseed_sppt,shum,shum_tau,                                          &
+      shum_lscale,stochini,skeb_varspect_opt,sppt_sfclimit,                         &
+      skeb,skeb_tau,skeb_vdof,skeb_lscale,iseed_skeb,skeb_vfilt,skeb_diss_smooth,   &
+      skeb_sigtop1,skeb_sigtop2,skebnorm,sppt_sigtop1,sppt_sigtop2,                 &
+      shum_sigefold,spptint,shumint,skebint,skeb_npass,use_zmtnblck,new_lscale,     &
+      epbl,epbl_lscale,epbl_tau,iseed_epbl,                                         &
+      ocnsppt,ocnsppt_lscale,ocnsppt_tau,iseed_ocnsppt,pbl_taper,                   &
+      ocnskeb,ocnskeb_lscale,ocnskeb_tau,iseed_ocnskeb
 
       namelist /nam_sfcperts/lndp_type,lndp_model_type,lndp_var_list, lndp_prt_list, iseed_lndp, & 
       lndp_tau,lndp_lscale 
@@ -463,25 +491,31 @@ module compns_stochy_mod
       ! (each is an array of length 5)
       epbl             = -999.  ! stochastic physics tendency amplitude
       ocnsppt          = -999.  ! stochastic physics tendency amplitude
+      ocnskeb          = -999.  ! stochastic physics tendency amplitude
 ! logicals
       pert_epbl = .false.
       do_ocnsppt = .false.
+      do_ocnskeb = .false.
       new_lscale = .false.
       epblint          = 0
       ocnspptint       = 0
+      ocnskebint       = 0
       epbl_tau         = -999.  ! time scales
       ocnsppt_tau      = -999.  ! time scales
+      ocnskeb_tau      = -999.  ! time scales
       epbl_lscale      = -999.  ! length scales
       ocnsppt_lscale   = -999.  ! length scales
+      ocnskeb_lscale   = -999.  ! length scales
       iseed_epbl       = 0      ! random seeds (if 0 use system clock)
       iseed_epbl2      = 0      ! random seeds (if 0 use system clock)
       iseed_ocnsppt    = 0      ! random seeds (if 0 use system clock)
+      iseed_ocnskeb    = 0      ! random seeds (if 0 use system clock)
       rewind (nlunit)
       open (unit=nlunit, file='input.nml', action='READ', status='OLD', iostat=ios)
       read(nlunit,nam_stochy)
+      close(nlunit)
 
-!      if (mpp_pe()==mpp_root_pe()) then
-      if (is_rootpe()) then
+      if (mpp_pe()==mpp_root_pe()) then
       print *,' in compns_stochy_ocn'
       endif
 
@@ -491,6 +525,9 @@ module compns_stochy_mod
       ENDIF
       IF (ocnsppt(1) > 0 ) THEN
         do_ocnsppt=.true.
+      ENDIF
+      IF (ocnskeb(1) > 0 ) THEN
+        do_ocnskeb=.true.
       ENDIF
 !    compute frequencty to update random pattern
       IF (epblint == 0.) epblint=deltim
@@ -503,26 +540,34 @@ module compns_stochy_mod
       IF (ocnspptint == 0.) ocnspptint=deltim
       nsocnsppt=nint(ocnspptint/deltim)                         ! ocnspptint in seconds
       IF(nsocnsppt<=0 .or. abs(nsocnsppt-ocnspptint/deltim)>tol) THEN
-         WRITE(0,*) "ePBL interval is invalid",ocnspptint
+         WRITE(0,*) "ocnsppt interval is invalid",ocnspptint
+        iret=9
+        return
+      ENDIF
+      IF (ocnskebint == 0.) ocnskebint=deltim
+      nsocnskeb=nint(ocnskebint/deltim)                         ! ocnskebint in seconds
+      IF(nsocnskeb<=0 .or. abs(nsocnskeb-ocnskebint/deltim)>tol) THEN
+         WRITE(0,*) "ocnskeb interval is invalid",ocnskebint
         iret=9
         return
       ENDIF
 !calculate ntrunc if not supplied
      if (ntrunc .LT. 1) then  
-        if (is_rootpe()) print*,'ntrunc not supplied, calculating'
+        if (mpp_pe()==mpp_root_pe()) print*,'ntrunc not supplied, calculating'
         circ=2*3.1415928*rerth ! start with lengthscale that is circumference of the earth
         l_min=circ
         do k=1,5
            if (epbl(k).GT.0) l_min=min(epbl_lscale(k),l_min)
            if (ocnsppt(k).GT.0) l_min=min(ocnsppt_lscale(k),l_min)
+           if (ocnskeb(k).GT.0) l_min=min(ocnskeb_lscale(k),l_min)
        enddo
        !ntrunc=1.5*circ/l_min
        ntrunc=circ/l_min
-       if (is_rootpe()) print*,'ntrunc calculated from l_min',l_min,ntrunc
+       if (mpp_pe()==mpp_root_pe()) print*,'ntrunc calculated from l_min',l_min,ntrunc
      endif
      ! ensure lat_s is a mutiple of 4 with a reminader of two
      ntrunc=INT((ntrunc+1)/four)*four+2
-     if (is_rootpe()) print*,'NOTE ntrunc adjusted for even nlats',ntrunc
+     if (mpp_pe()==mpp_root_pe()) print*,'NOTE ntrunc adjusted for even nlats',ntrunc
 
 ! set up gaussian grid for ntrunc if not already defined. 
      if (lon_s.LT.1 .OR. lat_s.LT.1) then
@@ -531,16 +576,17 @@ module compns_stochy_mod
 ! Grid needs to be larger since interpolation is bi-linear
         lat_s=lat_s*2
         lon_s=lon_s*2
-        if (is_rootpe()) print*,'gaussian grid not set, defining here',lon_s,lat_s
+        if (mpp_pe()==mpp_root_pe()) print*,'gaussian grid not set, defining here',lon_s,lat_s
      endif
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
 !  All checks are successful.
 !
-      if (is_rootpe()) then
+      if (mpp_pe()==mpp_root_pe()) then
          print *, 'ocean stochastic physics'
          print *, ' pert_epbl : ', pert_epbl
          print *, ' do_ocnsppt : ', do_ocnsppt
+         print *, ' do_ocnskeb : ', do_ocnskeb
       endif
       iret = 0
       if (iseed_epbl(1) > 0) iseed_epbl2(1)=iseed_epbl(1)-1234567

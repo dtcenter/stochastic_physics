@@ -176,13 +176,13 @@
         integer,parameter:: n=624
         integer,parameter:: m=397
         integer,parameter:: mata=-1727483681     !< constant vector a
-        integer,parameter:: umask=-2147483648    !< most significant w-r bits
+        integer,parameter:: umask=-2147483647-1  !< most significant w-r bits
         integer,parameter:: lmask =2147483647    !< least significant r bits
         integer,parameter:: tmaskb=-1658038656   !< tempering parameter
         integer,parameter:: tmaskc=-272236544    !< tempering parameter
         integer,parameter:: mag01(0:1)=(/0,mata/)
         integer,parameter:: iseed=4357
-        integer,parameter:: nrest=n+6
+        integer,parameter:: nrest=n+4
 !  Defined types
         type random_stat                         !< Generator state 
           private
