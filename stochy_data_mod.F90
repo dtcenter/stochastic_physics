@@ -4,7 +4,10 @@ module stochy_data_mod
 
 #include "macros.h"
 
+#if DYCORE == MPAS
  use mpas_pool_routines
+ use stoch_nml_rec
+#endif
 ! set up and initialize stochastic random patterns.
 
  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
@@ -19,7 +22,6 @@ module stochy_data_mod
 ! use mersenne_twister_stochy, only : random_seed
  use mersenne_twister, only : random_seed
  use compns_stochy_mod, only : compns_stochy
- use stoch_nml_rec
 
  use kinddef, only: kind_phys
 
