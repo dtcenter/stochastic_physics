@@ -42,11 +42,11 @@ module spectral_transforms
       implicit none
 !
 #if DYCORE == FV3
-  #ifdef CESMCOUPLED
+#ifdef CESMCOUPLED
       external dgemm
-  #else
+#else
       external esmf_dgemm
-  #endif
+#endif
 #endif
 !     
       integer, intent(in)     :: nvars
@@ -121,11 +121,11 @@ module spectral_transforms
 !           compute the sum of the even imaginary terms for each level
 !
 #if DYCORE == FV3
-  #ifdef CESMCOUPLED
+#ifdef CESMCOUPLED
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
-  #else
+#else
         call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
-  #endif
+#endif
 #elif DYCORE == MPAS
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
 #endif
@@ -136,11 +136,11 @@ module spectral_transforms
 !           compute the sum of the odd imaginary terms for each level
 !
 #if DYCORE == FV3
-  #ifdef CESMCOUPLED
+#ifdef CESMCOUPLED
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
-  #else
+#else
         call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
-  #endif
+#endif
 #elif DYCORE == MPAS
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
 #endif
