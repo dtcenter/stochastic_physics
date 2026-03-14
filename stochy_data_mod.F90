@@ -25,7 +25,7 @@ module stochy_data_mod
  use mersenne_twister, only : random_seed
  use compns_stochy_mod, only : compns_stochy
 
- use kinddef, only: kind_phys
+ use kinddef, only: kind_phys, kind_dbl_prec
 
  implicit none
  private
@@ -42,9 +42,9 @@ module stochy_data_mod
  integer, public :: nskeb=0
  integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input)
  integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input)
- real*8, public,allocatable :: sl(:)
+ real(kind=kind_dbl_prec), public,allocatable :: sl(:)
 #if DYCORE == MPAS
- real*8, public, parameter :: radius = 6.3712e+6
+ real(kind=kind_dbl_prec), public, parameter :: radius = 6.3712e+6
 #endif
 
  real(kind=kind_phys),public, allocatable :: vfact_sppt(:),vfact_shum(:),vfact_skeb(:),vfact_spp(:)
@@ -80,14 +80,14 @@ module stochy_data_mod
 #endif
    real(kind=kind_phys), intent(in) :: delt
    integer, intent(out) :: iret
-   real :: ones(6)
+   real(kind=kind_dbl_prec) :: ones(6)
 
    real :: rnn1,gamma_sum
    integer :: nn,k,nm,stochlun,ierr,n
    integer :: locl,indev,indod,indlsod,indlsev
    integer :: l,jbasev,jbasod
    integer :: jcapin,varid1,varid2
-   real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
+   real(kind_dbl_prec),allocatable :: noise_e(:,:),noise_o(:,:)
    include 'function_indlsod'
    include 'function_indlsev'
    include 'netcdf.inc'
@@ -428,7 +428,11 @@ module stochy_data_mod
          endif
       endif
       ones = 1.
-      call patterngenerator_init(lndp_lscale(1:nlndp),real(delt,kind_phys),lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
+#if DYCORE == FV3
+      call patterngenerator_init(lndp_lscale(1:nlndp),lndpint,lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
+#elif DYCORE == MPAS
+      call patterngenerator_init(lndp_lscale(1:nlndp),real(delt,kind_dbl_prec),lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
+#endif
                                  lonf,latg,jcap,gis_stochy%ls_node,nlndp,n_var_lndp,0,new_lscale)
       do n=1,nlndp
          if (is_rootpe()) print *, 'Initialize random pattern for LNDP PERTS'
@@ -483,7 +487,11 @@ module stochy_data_mod
          endif
       endif
       ones = 1.
-      call patterngenerator_init(spp_lscale(1:nspp),real(delt,kind_phys),spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
+#if DYCORE == FV3
+      call patterngenerator_init(spp_lscale(1:nspp),sppint,spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
+#elif DYCORE == MPAS
+      call patterngenerator_init(spp_lscale(1:nspp),real(delt,kind_dbl_prec),spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
+#endif
                                  lonf,latg,jcap,gis_stochy%ls_node,nspp,n_var_spp,0,new_lscale)
       do n=1,nspp
          if (is_rootpe()) print *, 'Initialize random pattern for SPP PERTS'
@@ -526,11 +534,13 @@ module stochy_data_mod
 
  use netcdf
  use compns_stochy_mod, only : compns_stochy_ocn
-! use mpp_domains_mod,     only: mpp_broadcast_domain,MPP_DOMAIN_TIME,mpp_domains_init ,mpp_domains_set_stack_size
+#if DYCORE == FV3
+ use mpp_domains_mod,     only: mpp_broadcast_domain,MPP_DOMAIN_TIME,mpp_domains_init ,mpp_domains_set_stack_size
+#endif
 ! initialize random patterns.  A spinup period of spinup_efolds times the
 ! temporal time scale is run for each pattern.
    integer, intent(in) :: nlevs
-   real, intent(in) :: delt
+   real(kind=kind_dbl_prec), intent(in) :: delt
    integer, intent(out) :: iret
 
    integer :: nn,nm,stochlun,n,jcapin,n2
@@ -538,7 +548,7 @@ module stochy_data_mod
    integer :: varid1,varid2,varid3,varid4,ierr
    real(kind=kind_dbl_prec) :: gamma_sum,pi
 
-   real(kind_phys),allocatable :: noise_e(:,:),noise_o(:,:)
+   real(kind_dbl_prec),allocatable :: noise_e(:,:),noise_o(:,:)
    include 'netcdf.inc'
    stochlun=99
    levs=nlevs
@@ -825,8 +835,8 @@ subroutine read_pattern(rpattern,jcapin,lunptn,k,np,varid1,varid2,slice_of_3d,ir
    type(random_pattern), intent(inout) :: rpattern
    integer, intent(in) :: lunptn,np,varid1,varid2,jcapin
    logical, intent(in) :: slice_of_3d
-   real(kind_phys),allocatable  :: pattern2d(:),pattern2din(:)
-   real(kind_phys) :: stdevin,varin
+   real(kind_dbl_prec),allocatable  :: pattern2d(:),pattern2din(:)
+   real(kind_dbl_prec) :: stdevin,varin
    integer nm,nn,iret,ierr,isize,k,ndimspec2
    integer, allocatable :: isave(:)
    include 'netcdf.inc'
