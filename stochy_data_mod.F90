@@ -13,7 +13,9 @@ module stochy_data_mod
  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
  use stochy_namelist_def
+#if DYCORE == FV3
  use constants_mod, only : radius
+#endif
  use mpi_wrapper, only: mp_bcst, is_rootpe, mype
  use stochy_patterngenerator_mod, only: random_pattern, patterngenerator_init,&
  getnoise, getnoise_un, patterngenerator_advance, patterngenerator_advance_jb, ndimspec, &
@@ -41,7 +43,9 @@ module stochy_data_mod
  integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input)
  integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input)
  real*8, public,allocatable :: sl(:)
+#if DYCORE == MPAS
  real*8, public, parameter :: radius = 6.3712e+6
+#endif
 
  real(kind=kind_phys),public, allocatable :: vfact_sppt(:),vfact_shum(:),vfact_skeb(:),vfact_spp(:)
  real(kind=kind_phys),public, allocatable :: skeb_vwts(:,:)

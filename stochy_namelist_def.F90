@@ -20,6 +20,7 @@
 
       real(kind=kind_phys) :: skeb_sigtop1,skeb_sigtop2,          &
                          sppt_sigtop1,sppt_sigtop2,shum_sigefold, &
+                         sppt_hgt_top1,sppt_hgt_top2,             &
                          skeb_vdof
       real(kind=kind_phys) skeb_diss_smooth,sppint,spptint,shumint,skebint,skebnorm
       real(kind=kind_phys) epblint,ocnspptint,ocnskebint

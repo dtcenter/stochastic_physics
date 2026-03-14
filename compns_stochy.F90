@@ -1,6 +1,8 @@
 !>@brief The module 'compns_stochy_mod' contains the subroutine compns_stochy
 module compns_stochy_mod
 
+#include "macros.h"
+
    implicit none
 
    contains
@@ -452,7 +454,11 @@ module compns_stochy_mod
 
 
       use stochy_namelist_def
+#if DYCORE == FV3
       use mpp_mod ,only: mpp_pe,mpp_root_pe
+#elif DYCORE == MPAS
+      use mpi_wrapper, only: is_rootpe
+#endif
 
       implicit none
 
@@ -515,7 +521,11 @@ module compns_stochy_mod
       read(nlunit,nam_stochy)
       close(nlunit)
 
+#if DYCORE == FV3
       if (mpp_pe()==mpp_root_pe()) then
+#elif DYCORE == MPAS
+      if (is_rootpe()) then
+#endif
       print *,' in compns_stochy_ocn'
       endif
 
@@ -553,7 +563,13 @@ module compns_stochy_mod
       ENDIF
 !calculate ntrunc if not supplied
      if (ntrunc .LT. 1) then  
-        if (mpp_pe()==mpp_root_pe()) print*,'ntrunc not supplied, calculating'
+#if DYCORE == FV3
+        if (mpp_pe()==mpp_root_pe()) then
+#elif DYCORE == MPAS
+        if (is_rootpe()) then
+#endif
+           print*,'ntrunc not supplied, calculating'
+        endif
         circ=2*3.1415928*rerth ! start with lengthscale that is circumference of the earth
         l_min=circ
         do k=1,5
@@ -563,11 +579,23 @@ module compns_stochy_mod
        enddo
        !ntrunc=1.5*circ/l_min
        ntrunc=circ/l_min
-       if (mpp_pe()==mpp_root_pe()) print*,'ntrunc calculated from l_min',l_min,ntrunc
+#if DYCORE == FV3
+       if (mpp_pe()==mpp_root_pe()) then
+#elif DYCORE == MPAS
+       if (is_rootpe()) then
+#endif
+          print*,'ntrunc calculated from l_min',l_min,ntrunc
+       endif
      endif
      ! ensure lat_s is a mutiple of 4 with a reminader of two
      ntrunc=INT((ntrunc+1)/four)*four+2
-     if (mpp_pe()==mpp_root_pe()) print*,'NOTE ntrunc adjusted for even nlats',ntrunc
+#if DYCORE == FV3
+     if (mpp_pe()==mpp_root_pe()) then
+#elif DYCORE == MPAS
+     if (is_rootpe()) then
+#endif
+        print*,'NOTE ntrunc adjusted for even nlats',ntrunc
+     endif
 
 ! set up gaussian grid for ntrunc if not already defined. 
      if (lon_s.LT.1 .OR. lat_s.LT.1) then
@@ -576,13 +604,23 @@ module compns_stochy_mod
 ! Grid needs to be larger since interpolation is bi-linear
         lat_s=lat_s*2
         lon_s=lon_s*2
-        if (mpp_pe()==mpp_root_pe()) print*,'gaussian grid not set, defining here',lon_s,lat_s
+#if DYCORE == FV3
+        if (mpp_pe()==mpp_root_pe()) then
+#elif DYCORE == MPAS
+        if (is_rootpe()) then
+#endif
+           print*,'gaussian grid not set, defining here',lon_s,lat_s
+        endif
      endif
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
 !  All checks are successful.
 !
+#if DYCORE == FV3
       if (mpp_pe()==mpp_root_pe()) then
+#elif DYCORE == MPAS
+      if (is_rootpe()) then
+#endif
          print *, 'ocean stochastic physics'
          print *, ' pert_epbl : ', pert_epbl
          print *, ' do_ocnsppt : ', do_ocnsppt
