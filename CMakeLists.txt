@@ -63,6 +63,12 @@ if(OPENMP)
   target_link_libraries(stochastic_physics PRIVATE OpenMP::OpenMP_Fortran)
 endif()
 
+if (MPAS)
+  add_definitions(-DMPAS)
+endif()
+if (FV3)
+  add_definitions(-DFV3)
+endif()
 ###############################################################################
 ### Install
 ###############################################################################

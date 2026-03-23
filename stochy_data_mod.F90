@@ -2,9 +2,8 @@
 !! namelist and determines the number of random patterns.
 module stochy_data_mod
 
-#include "macros.h"
 
-#if DYCORE == MPAS
+#ifdef MPAS
  use mpas_pool_routines
  use stoch_nml_rec
 #endif
@@ -13,7 +12,7 @@ module stochy_data_mod
  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
  use stochy_namelist_def
-#if DYCORE == FV3
+#ifdef FV3
  use constants_mod, only : radius
 #endif
  use mpi_wrapper, only: mp_bcst, is_rootpe, mype
@@ -43,7 +42,7 @@ module stochy_data_mod
  integer, public :: nlndp=0 ! this is the number of different patterns (determined by the tau/lscale input)
  integer, public :: nspp =0 ! this is the number of different patterns (determined by the tau/lscale input)
  real(kind=kind_dbl_prec), public,allocatable :: sl(:)
-#if DYCORE == MPAS
+#ifdef MPAS
  real(kind=kind_dbl_prec), public, parameter :: radius = 6.3712e+6
 #endif
 
@@ -60,9 +59,10 @@ module stochy_data_mod
 !>@brief The subroutine 'init_stochdata' determines which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
-#if DYCORE == FV3
+#ifdef FV3
  subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
  subroutine init_stochdata(domain,mype,nlevs,delt,iret)
 #endif
 !\callgraph
@@ -70,11 +70,12 @@ module stochy_data_mod
 ! initialize random patterns.
    use netcdf
    implicit none
-#if DYCORE == FV3
+#ifdef FV3
    integer, intent(in) :: nlunit,nlevs
    character(len=*),  intent(in) :: input_nml_file(:)
    character(len=64), intent(in) :: fn_nml
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
    type(domain_type),intent(inout):: domain
    integer, intent(in) :: mype,nlevs
 #endif
@@ -97,9 +98,10 @@ module stochy_data_mod
    iret=0
 ! read in namelist
 
-#if DYCORE == FV3
+#ifdef FV3
    call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
    call get_nml_rec (domain,mype,real(delt),iret)
 #endif
 
@@ -428,9 +430,10 @@ module stochy_data_mod
          endif
       endif
       ones = 1.
-#if DYCORE == FV3
+#ifdef FV3
       call patterngenerator_init(lndp_lscale(1:nlndp),lndpint,lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
       call patterngenerator_init(lndp_lscale(1:nlndp),real(delt,kind_dbl_prec),lndp_tau(1:nlndp),ones(1:nlndp),iseed_lndp,rpattern_sfc, &
 #endif
                                  lonf,latg,jcap,gis_stochy%ls_node,nlndp,n_var_lndp,0,new_lscale)
@@ -487,9 +490,10 @@ module stochy_data_mod
          endif
       endif
       ones = 1.
-#if DYCORE == FV3
+#ifdef FV3
       call patterngenerator_init(spp_lscale(1:nspp),sppint,spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
       call patterngenerator_init(spp_lscale(1:nspp),real(delt,kind_dbl_prec),spp_tau(1:nspp),ones(1:nspp),iseed_spp,rpattern_spp, &
 #endif
                                  lonf,latg,jcap,gis_stochy%ls_node,nspp,n_var_spp,0,new_lscale)
@@ -530,17 +534,18 @@ module stochy_data_mod
    deallocate(noise_e,noise_o)
  end subroutine init_stochdata
 
- subroutine init_stochdata_ocn(nlevs,delt,iret)
+ subroutine init_stochdata_ocn(nlevs,delt,iret,on_mpi_master)
 
  use netcdf
  use compns_stochy_mod, only : compns_stochy_ocn
-#if DYCORE == FV3
+#ifdef FV3
  use mpp_domains_mod,     only: mpp_broadcast_domain,MPP_DOMAIN_TIME,mpp_domains_init ,mpp_domains_set_stack_size
 #endif
 ! initialize random patterns.  A spinup period of spinup_efolds times the
 ! temporal time scale is run for each pattern.
    integer, intent(in) :: nlevs
    real(kind=kind_dbl_prec), intent(in) :: delt
+   logical, intent(in) :: on_mpi_master
    integer, intent(out) :: iret
 
    integer :: nn,nm,stochlun,n,jcapin,n2
@@ -555,7 +560,7 @@ module stochy_data_mod
 
    pi    = 4.0d0*atan(1.0d0)
    iret=0
-   call compns_stochy_ocn (delt,iret)
+   call compns_stochy_ocn (delt,iret,on_mpi_master)
    if(is_rootpe()) print*,'in init stochdata_ocn'
    if ( pert_epbl .OR. do_ocnsppt .OR. do_ocnskeb ) then
       if ( pert_epbl .OR. do_ocnsppt ) call initialize_spectral(gis_stochy_ocn)

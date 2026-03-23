@@ -1,5 +1,8 @@
 module kinddef
-
+#ifdef MPAS
+  use mpas_kind_types
+#endif
+  
       implicit none
 
       private
@@ -15,7 +18,12 @@ module kinddef
       integer, parameter :: kind_phys     = 8
 #endif
 
+#ifdef FV3
       integer, parameter :: kind_dbl_prec = 8
+#endif
+#ifdef MPAS
+      integer, parameter :: kind_dbl_prec => RKIND
+#endif
       integer, parameter :: kind_io8      = kind_dbl_prec
 
 #ifdef NO_QUAD_PRECISION

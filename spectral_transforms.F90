@@ -1,8 +1,6 @@
 !>@brief The module 'spectral_transforms' contains the subroutines spec_to_four and four_to_grid
 module spectral_transforms
 
-#include "macros.h"
-
  use kinddef
  use mpi_wrapper, only : mp_alltoall,mype,npes
  use stochy_internal_state_mod, only : stochy_internal_state
@@ -41,7 +39,7 @@ module spectral_transforms
 
       implicit none
 !
-#if DYCORE == FV3
+#ifdef FV3
 #ifdef CESMCOUPLED
       external dgemm
 #else
@@ -120,13 +118,14 @@ module spectral_transforms
 !           compute the sum of the even real      terms for each level
 !           compute the sum of the even imaginary terms for each level
 !
-#if DYCORE == FV3
+#ifdef FV3
 #ifdef CESMCOUPLED
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
 #else
         call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
 #endif
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
 #endif
                         cons1, flnev(indev,1), len_trie_ls, plnev(indev,lat1), &
@@ -135,13 +134,14 @@ module spectral_transforms
 !           compute the sum of the odd real      terms for each level
 !           compute the sum of the odd imaginary terms for each level
 !
-#if DYCORE == FV3
+#ifdef FV3
 #ifdef CESMCOUPLED
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
 #else
         call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
 #endif
-#elif DYCORE == MPAS
+#endif
+#ifdef MPAS
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
 #endif
                         cons1, flnod(indod,1), len_trio_ls, plnod(indod,lat1), &

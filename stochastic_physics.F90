@@ -4,7 +4,12 @@ module stochastic_physics
 
 use mpi_f08
 use kinddef, only : kind_phys, kind_dbl_prec
-
+#ifdef FV3
+use mpp_mod ,only: mpp_pe,mpp_root_pe
+#endif
+#ifdef MPAS
+use mpi_wrapper, only: is_rootpe
+#endif
 implicit none
 
 private
@@ -295,7 +300,7 @@ real(kind=kind_dbl_prec), parameter  :: con_pi = 4.0d0 * atan(1.0d0)
 real(kind=kind_dbl_prec)             :: dx
 integer                              :: k, latghf, km
 type(MPI_Comm)                       :: mpicomm_t ! FIXME once MOM6 updates to use mpi_f90 types
-
+logical                              :: on_mpi_master !djs
 
 rad2deg = 180.0 / con_pi
 mpicomm_t%mpi_val = mpicomm
@@ -327,7 +332,15 @@ gis_stochy_ocn_skeb%parent_lats = geoLatB
 
 INTTYP = 0 ! bilinear interpolation
 km     = nz
-call init_stochdata_ocn(km, delt, iret)
+!DJS
+on_mpi_master=.false.
+#ifdef FV3
+if (mpp_pe()==mpp_root_pe()) on_mpi_master=.true.
+#endif
+#ifdef MPAS
+if (is_rootpe()) on_mpi_master=.true.
+#endif
+call init_stochdata_ocn(km, delt, iret, on_mpi_master)
 if (do_sppt_in.neqv.do_ocnsppt) then
    write(0, '(*(a))') 'Logic error in stochastic_physics_ocn_init: incompatible', &
                     & ' namelist settings do_sppt and sppt'

@@ -1,10 +1,6 @@
 !>@brief The module 'get_stochy_pattern_mod' contains the subroutines to retrieve the random pattern in the cubed-sphere grid
 module get_stochy_pattern_mod
-#include "macros.h"
  use kinddef
-#if DYCORE == MPAS
- use mpas_kind_types
-#endif
  use spectral_transforms, only : len_trie_ls,                       &
                                  len_trio_ls, ls_dim, stochy_la2ga,          &
                                  coslat_a, latg, levs, lonf, skeblevs,&
