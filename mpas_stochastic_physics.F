@@ -34,16 +34,16 @@ module mpas_stochastic_physics
   logical :: do_sppt = .true. 
   logical :: do_skeb, do_shum, do_spp 
 
-  real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
-  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
-  real(kind=RKIND), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
-  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
+  real(kind=kind_phys), dimension(:),pointer:: lonCell, latCell
+  real(kind=kind_phys), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
+  real(kind=kind_phys), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
+  real(kind=kind_phys), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
   integer, dimension(:), pointer :: blksz
   integer, pointer :: nCells, nEdges, nVertLevels, nVertLevelsP1
   integer, pointer :: lon_f, lat_g
-  real(kind=RKIND), pointer :: dt, sppt_1, sppt_2, sppt_3
-  real(kind=RKIND), pointer :: sppt_tau_1, sppt_tau_2, sppt_tau_3 
-  real(kind=RKIND), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3 
+  real(kind=kind_phys), pointer :: dt, sppt_1, sppt_2, sppt_3
+  real(kind=kind_phys), pointer :: sppt_tau_1, sppt_tau_2, sppt_tau_3 
+  real(kind=kind_phys), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3 
   integer, pointer :: spptint
 
   integer, save :: nblks
@@ -293,7 +293,7 @@ module mpas_stochastic_physics
     character(len=32), intent(in) :: tend_names(num_tends)
     integer, intent(out) :: ierr
 
-    real(kind=RKIND), dimension(:,:),pointer:: tend_array 
+    real(kind=kind_phys), dimension(:,:),pointer:: tend_array 
 
     type(block_type),pointer:: block
     integer :: i, j, k, nblks, pid
@@ -368,18 +368,18 @@ module mpas_stochastic_physics
   end subroutine stochastic_physics_pattern_apply
 
   subroutine apply_pattern(tendency, stoch_pattern)
-    real(kind=RKIND), dimension(nVertLevels,nCells) :: tendency
-    real(kind=RKIND), dimension(nVertLevels,nCells) :: stoch_pattern
+    real(kind=kind_phys), dimension(nVertLevels,nCells) :: tendency
+    real(kind=kind_phys), dimension(nVertLevels,nCells) :: stoch_pattern
 
     tendency = tendency*stoch_pattern
 
    end subroutine apply_pattern
 
    subroutine get_zk(zgrid, zk)
-    real(kind=RKIND), dimension(nVertLevelsP1,nCells) :: zgrid
+    real(kind=kind_phys), dimension(nVertLevelsP1,nCells) :: zgrid
     real(kind=kind_phys), dimension(nVertlevelsP1) :: zk
     
-    real(kind=RKIND) :: z_btm
+    real(kind=kind_phys) :: z_btm
     integer :: i
     
     z_btm = 10000.0 
