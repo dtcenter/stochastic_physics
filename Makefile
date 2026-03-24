@@ -8,10 +8,10 @@ FFLAGS_STOCH = -real-size 64 $(FFLAGS)
 FCINCLUDES_STOCH = $(FCINCLUDES) -I../../framework -I../../external/esmf_time_f90 
 RM = rm
 # CORE is a make variable passed via the command line (e.g. "make CORE=atmosphere")
-# that specifies which of the various MPAS cores to build.
+# in the main call to make to build MPAS.  It specifies which of the various MPAS
+# cores to build.
 ifeq ($(CORE),atmosphere)
-#COREDEF = -DMPAS
-COREDEF = -DMPAS_STOCH
+COREDEF = -DMPAS
 endif
 
 all: stoch_physics_lib
