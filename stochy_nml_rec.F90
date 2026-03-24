@@ -8,7 +8,7 @@
    !
    !-----------------------------------------------------------------------
 module stoch_nml_rec
-
+  use kinddef, only: kind_phys, StrKIND
    implicit none
 
    contains
@@ -43,17 +43,17 @@ module stoch_nml_rec
 
       type(mpas_pool_type) :: configPool
 
-      real (kind=RKIND), pointer :: config_sppt_1
-      real (kind=RKIND), pointer :: config_sppt_2
-      real (kind=RKIND), pointer :: config_sppt_3
-      real (kind=RKIND), pointer :: config_sppt_tau_1
-      real (kind=RKIND), pointer :: config_sppt_tau_2
-      real (kind=RKIND), pointer :: config_sppt_tau_3
-      real (kind=RKIND), pointer :: config_sppt_lscale_1
-      real (kind=RKIND), pointer :: config_sppt_lscale_2
-      real (kind=RKIND), pointer :: config_sppt_lscale_3
-      real (kind=RKIND), pointer :: config_sppt_hgt_top1
-      real (kind=RKIND), pointer :: config_sppt_hgt_top2
+      real (kind=kind_phys), pointer :: config_sppt_1
+      real (kind=kind_phys), pointer :: config_sppt_2
+      real (kind=kind_phys), pointer :: config_sppt_3
+      real (kind=kind_phys), pointer :: config_sppt_tau_1
+      real (kind=kind_phys), pointer :: config_sppt_tau_2
+      real (kind=kind_phys), pointer :: config_sppt_tau_3
+      real (kind=kind_phys), pointer :: config_sppt_lscale_1
+      real (kind=kind_phys), pointer :: config_sppt_lscale_2
+      real (kind=kind_phys), pointer :: config_sppt_lscale_3
+      real (kind=kind_phys), pointer :: config_sppt_hgt_top1
+      real (kind=kind_phys), pointer :: config_sppt_hgt_top2
       logical, pointer :: config_do_sppt
       logical, pointer :: config_sppt_logit
       logical, pointer :: config_sppt_sfclimit
