@@ -301,7 +301,7 @@ module mpas_stochastic_physics
      
     pid = domain%dminfo%my_proc_id  
 
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
     if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply, pid = ', pid
 #endif
 
@@ -325,37 +325,37 @@ module mpas_stochastic_physics
        case ("rucuten")
          call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rucuten'
 #endif
        case ("rvcuten")
          call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
 #endif
        case ("rublten")
          call mpas_pool_get_array(tend_physics,'rublten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rublten'
 #endif
        case ("rvblten")
          call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rvblten'
 #endif
        case ("tend_rtheta_physics")
          call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rtheta'
 #endif
        case ("tend_rho_physics")
          call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHY_DIAG
+#ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rho'
 #endif
        case default 
