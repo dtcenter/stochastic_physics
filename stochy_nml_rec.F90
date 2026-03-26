@@ -8,7 +8,7 @@
    !
    !-----------------------------------------------------------------------
 module stoch_nml_rec
-  use kinddef, only: kind_phys, StrKIND
+  use kinddef, only: kind_phys, RKIND, StrKIND
    implicit none
 
    contains
@@ -43,17 +43,31 @@ module stoch_nml_rec
 
       type(mpas_pool_type) :: configPool
 
-      real (kind=kind_phys), pointer :: config_sppt_1
-      real (kind=kind_phys), pointer :: config_sppt_2
-      real (kind=kind_phys), pointer :: config_sppt_3
-      real (kind=kind_phys), pointer :: config_sppt_tau_1
-      real (kind=kind_phys), pointer :: config_sppt_tau_2
-      real (kind=kind_phys), pointer :: config_sppt_tau_3
-      real (kind=kind_phys), pointer :: config_sppt_lscale_1
-      real (kind=kind_phys), pointer :: config_sppt_lscale_2
-      real (kind=kind_phys), pointer :: config_sppt_lscale_3
-      real (kind=kind_phys), pointer :: config_sppt_hgt_top1
-      real (kind=kind_phys), pointer :: config_sppt_hgt_top2
+! Local variables in this subroutine that will be filled in with values from
+! the MPAS namelist using the mpas_pool_get_config() subroutine (which is a
+! generic function) must have the same types and kinds or lengths as the "value"
+! arguments for the type-specific versions of that function.  For example, the
+! subroutine mpas_pool_get_config_real() that reads in a real value, assumes
+! its "value" argument is a "real (kind=RKIND)" (see file mpas_pool_routines.F
+! in the MPAS-Model code base).  Thus, here, any local real variables passed
+! to mpas_pool_get_config() must also be delcared as "real (kind=RKIND)" because
+! otherwise, the build of MPAS-Model with stochastic_physics will fail.  Similarly,
+! any local character variables must be declared as "character (len=StrKIND)".
+! Logical and integer variables can be declared simply as "logical" and "integer"
+! because that's how the subroutines mpas_pool_get_config_logical() and
+! mpas_pool_get_config_int() in mpas_pool_routines.F declare their "value"
+! arguments.
+      real (kind=RKIND), pointer :: config_sppt_1
+      real (kind=RKIND), pointer :: config_sppt_2
+      real (kind=RKIND), pointer :: config_sppt_3
+      real (kind=RKIND), pointer :: config_sppt_tau_1
+      real (kind=RKIND), pointer :: config_sppt_tau_2
+      real (kind=RKIND), pointer :: config_sppt_tau_3
+      real (kind=RKIND), pointer :: config_sppt_lscale_1
+      real (kind=RKIND), pointer :: config_sppt_lscale_2
+      real (kind=RKIND), pointer :: config_sppt_lscale_3
+      real (kind=RKIND), pointer :: config_sppt_hgt_top1
+      real (kind=RKIND), pointer :: config_sppt_hgt_top2
       logical, pointer :: config_do_sppt
       logical, pointer :: config_sppt_logit
       logical, pointer :: config_sppt_sfclimit
@@ -110,6 +124,15 @@ module stoch_nml_rec
 
       call mpas_pool_get_config(configPool, 'do_skeb', config_do_skeb)
       call mpas_pool_get_config(configPool, 'config_stochini', config_stochini)
+
+! Assign values read in from the MPAS-Model namelist to variables native to
+! the stochastic_physics code.  Note that this may involve conversions from
+! one kind to another because the kinds of the local variables here (e.g.
+! config_sppt_1, which is declared as kind=RKIND, which is single-precision
+! if MPAS-Model is built with -DSINGLE_PRECISION and double otherwise) may
+! not be the same as the kinds of the variables native to the stochastic_physics
+! code (e.g. the real array sppt, which is declared as "real (kind=kind_dbl_prec)",
+! where kind_dbl_prec always represents double-precision).
 
       do_sppt = config_do_sppt
       spptint = config_spptint
