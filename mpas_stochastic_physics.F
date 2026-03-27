@@ -1,5 +1,5 @@
 module mpas_stochastic_physics
-  use kinddef, only: kind_phys
+  use kinddef, only: kind_phys, RKIND
   use mpi_f08
   use mpas_pool_routines
   use mpas_log, only : mpas_log_write, mpas_log_info
@@ -31,19 +31,19 @@ module mpas_stochastic_physics
 !  integer, dimension(:,:),   allocatable, save :: stype
 
   logical, pointer :: do_sppt_config, do_skeb_config, do_shum_config, do_spp_config 
-  logical :: do_sppt = .true. 
+  logical :: do_sppt = .true.
   logical :: do_skeb, do_shum, do_spp 
 
-  real(kind=kind_phys), dimension(:),pointer:: lonCell, latCell
-  real(kind=kind_phys), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
-  real(kind=kind_phys), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
-  real(kind=kind_phys), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
+  real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(lon_for, lat_leg)
   integer, dimension(:), pointer :: blksz
   integer, pointer :: nCells, nEdges, nVertLevels, nVertLevelsP1
   integer, pointer :: lon_f, lat_g
-  real(kind=kind_phys), pointer :: dt, sppt_1, sppt_2, sppt_3
-  real(kind=kind_phys), pointer :: sppt_tau_1, sppt_tau_2, sppt_tau_3 
-  real(kind=kind_phys), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3 
+  real(kind=RKIND), pointer :: dt, sppt_1, sppt_2, sppt_3
+  real(kind=RKIND), pointer :: sppt_tau_1, sppt_tau_2, sppt_tau_3
+  real(kind=RKIND), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3
   integer, pointer :: spptint
 
   integer, save :: nblks
@@ -154,7 +154,7 @@ module mpas_stochastic_physics
       call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_sppt',stoch_pat_sppt)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
-      stoch_pat_sppt(:,:) = real(domain%dminfo%my_proc_id)
+      stoch_pat_sppt(:,:) = real(domain%dminfo%my_proc_id, kind=RKIND)
       block => block%next
     enddo
 
@@ -168,7 +168,7 @@ module mpas_stochastic_physics
     allocate(zk(nVertLevelsP1))
 !    allocate(ak(nVertLevels), bk(nVertLevels))
 
-    call get_zk(zgrid, zk)
+    call get_zk(real(zgrid,kind=kind_phys), zk)
 
     nblks = 0
     block => domain % blocklist
@@ -178,14 +178,14 @@ module mpas_stochastic_physics
       call mpas_pool_get_array(mesh,'lonCell',lonCell)
       call mpas_pool_get_array(mesh,'latCell',latCell)
       call mpas_pool_get_dimension(mesh,'nCells',nCells)
-      xlon(nblks,1:nCells) = lonCell(1:nCells) 
-      xlat(nblks,1:nCells) = latCell(1:nCells) 
+      xlon(nblks,1:nCells) = real(lonCell(1:nCells), kind=kind_phys)
+      xlat(nblks,1:nCells) = real(latCell(1:nCells), kind=kind_phys)
       block => block%next
     enddo
 
 !    if (pid == 0) print*, 'Call init_stochastic_physics (domain, ...).'
     mpi_root = 0; mpi_comm = domain%dminfo%comm
-    dtp = dt
+    dtp = real(dt, kind=kind_phys)
     ierr = 0
     call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
          xlon, xlat, zk, mpi_comm, mpi_root, iret) 
@@ -262,7 +262,7 @@ module mpas_stochastic_physics
 !    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
     if (iret == 0) then ! if pattern is advanced (updated)
       do k = 1, nVertLevels
-        stoch_pat_sppt(k,1:nCells) = st_pat(1,1:nCells,k)
+        stoch_pat_sppt(k,1:nCells) = real(st_pat(1,1:nCells,k), kind=RKIND)
       enddo
     endif
     deallocate(st_pat)
@@ -293,7 +293,7 @@ module mpas_stochastic_physics
     character(len=32), intent(in) :: tend_names(num_tends)
     integer, intent(out) :: ierr
 
-    real(kind=kind_phys), dimension(:,:),pointer:: tend_array 
+    real(kind=RKIND), dimension(:,:),pointer:: tend_array 
 
     type(block_type),pointer:: block
     integer :: i, j, k, nblks, pid
@@ -368,8 +368,8 @@ module mpas_stochastic_physics
   end subroutine stochastic_physics_pattern_apply
 
   subroutine apply_pattern(tendency, stoch_pattern)
-    real(kind=kind_phys), dimension(nVertLevels,nCells) :: tendency
-    real(kind=kind_phys), dimension(nVertLevels,nCells) :: stoch_pattern
+    real(kind=RKIND), dimension(nVertLevels,nCells) :: tendency
+    real(kind=RKIND), dimension(nVertLevels,nCells) :: stoch_pattern
 
     tendency = tendency*stoch_pattern
 
