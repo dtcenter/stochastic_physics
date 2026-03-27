@@ -7,7 +7,7 @@
    !> \date    Oct 2024
    !
    !-----------------------------------------------------------------------
-module stoch_nml_rec
+module stochy_nml_rec
    use kinddef, only: kind_phys, RKIND, StrKIND
    implicit none
 
@@ -225,4 +225,4 @@ module stoch_nml_rec
       return
     end subroutine get_nml_rec
 
-end module stoch_nml_rec
+end module stochy_nml_rec

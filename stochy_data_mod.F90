@@ -5,7 +5,7 @@ module stochy_data_mod
 
 #ifdef MPAS
  use mpas_pool_routines
- use stoch_nml_rec
+ use stochy_nml_rec
 #endif
 ! set up and initialize stochastic random patterns.
 
