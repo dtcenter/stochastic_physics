@@ -31,7 +31,7 @@ module mpas_stochastic_physics
 !  integer, dimension(:,:),   allocatable, save :: stype
 
   logical, pointer :: do_sppt_config, do_skeb_config, do_shum_config, do_spp_config 
-  logical :: do_sppt = .true. 
+  logical :: do_sppt = .true.
   logical :: do_skeb, do_shum, do_spp 
 
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
@@ -154,10 +154,6 @@ module mpas_stochastic_physics
       call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_sppt',stoch_pat_sppt)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
-      ! In the following, is the real() explicit type conversion necessary?
-      ! Fortran should automatically perform implicit type conversion from 
-      ! integer (which is the type of my_proc_id) to whatever the type of
-      ! stoch_pat_sppt is.
       stoch_pat_sppt(:,:) = real(domain%dminfo%my_proc_id, kind=RKIND)
       block => block%next
     enddo
@@ -182,14 +178,14 @@ module mpas_stochastic_physics
       call mpas_pool_get_array(mesh,'lonCell',lonCell)
       call mpas_pool_get_array(mesh,'latCell',latCell)
       call mpas_pool_get_dimension(mesh,'nCells',nCells)
-      xlon(nblks,1:nCells) = lonCell(1:nCells) 
-      xlat(nblks,1:nCells) = latCell(1:nCells) 
+      xlon(nblks,1:nCells) = real(lonCell(1:nCells), kind=kind_phys)
+      xlat(nblks,1:nCells) = real(latCell(1:nCells), kind=kind_phys)
       block => block%next
     enddo
 
 !    if (pid == 0) print*, 'Call init_stochastic_physics (domain, ...).'
     mpi_root = 0; mpi_comm = domain%dminfo%comm
-    dtp = dt
+    dtp = real(dt, kind=kind_phys)
     ierr = 0
     call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
          xlon, xlat, zk, mpi_comm, mpi_root, iret) 
@@ -266,9 +262,7 @@ module mpas_stochastic_physics
 !    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
     if (iret == 0) then ! if pattern is advanced (updated)
       do k = 1, nVertLevels
-        ! The following will involve an implicit type (actually, kind) conversion
-        ! if RKIND and kind_phys are not equivalent.
-        stoch_pat_sppt(k,1:nCells) = st_pat(1,1:nCells,k)
+        stoch_pat_sppt(k,1:nCells) = real(st_pat(1,1:nCells,k), kind=RKIND)
       enddo
     endif
     deallocate(st_pat)

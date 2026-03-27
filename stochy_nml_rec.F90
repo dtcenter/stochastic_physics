@@ -8,7 +8,7 @@
    !
    !-----------------------------------------------------------------------
 module stoch_nml_rec
-  use kinddef, only: kind_phys, RKIND, StrKIND
+   use kinddef, only: kind_phys, RKIND, StrKIND
    implicit none
 
    contains
@@ -126,27 +126,25 @@ module stoch_nml_rec
       call mpas_pool_get_config(configPool, 'config_stochini', config_stochini)
 
 ! Assign values read in from the MPAS-Model namelist to variables native to
-! the stochastic_physics code.  Note that this may involve conversions from
-! one kind to another because the kinds of the local variables here (e.g.
-! config_sppt_1, which is declared as kind=RKIND, which is single-precision
-! if MPAS-Model is built with -DSINGLE_PRECISION and double otherwise) may
-! not be the same as the kinds of the variables native to the stochastic_physics
-! code (e.g. the real array sppt, which is declared as "real (kind=kind_dbl_prec)",
-! where kind_dbl_prec always represents double-precision).
-
+! the stochastic_physics code.
       do_sppt = config_do_sppt
-      spptint = config_spptint
-      sppt(1) = config_sppt_1
-      sppt(2) = config_sppt_2
-      sppt(3) = config_sppt_3
 
-      sppt_tau(1) = config_sppt_tau_1
-      sppt_tau(2) = config_sppt_tau_2
-      sppt_tau(3) = config_sppt_tau_3
+! spptint is declared as real/kind_dbl_prec, so convert to that type/kind.
+! Note that config_spptint is declared as an integer.
+      spptint = real(config_spptint, kind=kind_dbl_prec)
 
-      sppt_lscale(1) = config_sppt_lscale_1
-      sppt_lscale(2) = config_sppt_lscale_2
-      sppt_lscale(3) = config_sppt_lscale_3
+! sppt, sppt_tau, and sppt_lscale are declared as real/kind_dbl_prec, so
+! convert to that type/kind.  It is not clear why they aren't defined as
+! kind=kind_phys.
+      sppt(1) = real(config_sppt_1, kind=kind_dbl_prec)
+      sppt(2) = real(config_sppt_2, kind=kind_dbl_prec)
+      sppt(3) = real(config_sppt_3, kind=kind_dbl_prec)
+      sppt_tau(1) = real(config_sppt_tau_1, kind=kind_dbl_prec)
+      sppt_tau(2) = real(config_sppt_tau_2, kind=kind_dbl_prec)
+      sppt_tau(3) = real(config_sppt_tau_3, kind=kind_dbl_prec)
+      sppt_lscale(1) = real(config_sppt_lscale_1, kind=kind_dbl_prec)
+      sppt_lscale(2) = real(config_sppt_lscale_2, kind=kind_dbl_prec)
+      sppt_lscale(3) = real(config_sppt_lscale_3, kind=kind_dbl_prec)
 
       sppt_logit = config_sppt_logit
       sppt_sfclimit = config_sppt_sfclimit
@@ -162,8 +160,11 @@ module stoch_nml_rec
 !      iseed_sppt(2) = config_iseed_sppt2
 !      iseed_sppt(3) = config_iseed_sppt3
 
-      sppt_hgt_top1 = config_sppt_hgt_top1
-      sppt_hgt_top2 = config_sppt_hgt_top2
+! sppt_hgt_top1 and sppt_hgt_top2 are declared as real/kind_dbl_prec, so
+! convert to that type/kind.  It is not clear why they aren't defined as
+! kind=kind_phys.
+      sppt_hgt_top1 = real(config_sppt_hgt_top1, kind=kind_dbl_prec)
+      sppt_hgt_top2 = real(config_sppt_hgt_top2, kind=kind_dbl_prec)
 
       do_skeb = config_do_skeb
       stochini = config_stochini
