@@ -10,7 +10,9 @@ module kinddef
   public :: kind_phys
   public :: kind_dbl_prec, kind_qdt_prec
   public :: kind_io8
+#ifdef MPAS
   public :: RKIND, StrKIND
+#endif
 
   ! FV3
 #ifdef FV3
