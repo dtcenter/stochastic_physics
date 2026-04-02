@@ -9,7 +9,9 @@ FCINCLUDES_STOCH = $(FCINCLUDES) -I../../framework -I../../external/esmf_time_f9
 RM = rm
 # CORE is a make variable passed via the command line (e.g. "make CORE=atmosphere")
 # in the main call to make to build MPAS.  It specifies which of the various MPAS
-# cores to build.
+# cores to build.  The MPAS macro passed via the -DMPAS flag specifies to the
+# pre-processor that stochastic_physics is being built for MPAS (as opposed to
+# another dycore such as FV3).
 ifeq ($(CORE),atmosphere)
 COREDEF = -DMPAS
 endif
