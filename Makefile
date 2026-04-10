@@ -4,7 +4,7 @@
 
 
 FC = mpif90
-FFLAGS_STOCH = -real-size 64 $(FFLAGS) 
+FFLAGS_STOCH = $(FFLAGS_PROMOTION) $(FFLAGS) 
 FCINCLUDES_STOCH = $(FCINCLUDES) -I../../framework -I../../external/esmf_time_f90 
 RM = rm
 # CORE is a make variable passed via the command line (e.g. "make CORE=atmosphere")
@@ -30,11 +30,11 @@ OBJS = \
 	mersenne_twister.o \
 	stochy_patterngenerator.o \
 	compns_stochy.o \
-        stochy_nml_rec.o \
+	stochy_nml_rec.o \
 	stochy_data_mod.o \
 	get_stochy_pattern.o \
-        stochastic_physics_m.o \
-        mpas_stochastic_physics.o	
+	stochastic_physics_m.o \
+	mpas_stochastic_physics.o	
 
 stoch_physics_lib: $(OBJS)
 	ar -ru libstochphys.a $(OBJS)
