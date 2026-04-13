@@ -1,7 +1,6 @@
 !>@brief The module 'compns_stochy_mod' contains the subroutine compns_stochy
 module compns_stochy_mod
 
-
    implicit none
 
    contains
