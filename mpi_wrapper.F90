@@ -1,6 +1,10 @@
 module mpi_wrapper
 
+#ifdef MPAS
+   use mpi
+#else
    use mpi_f08
+#endif
 
    implicit none
 
@@ -14,7 +18,11 @@ module mpi_wrapper
    integer, save :: mype = -999
    integer, save :: npes = -999
    integer, save :: root = -999
+#ifdef MPAS
+   integer, save :: comm
+#else
    type(MPI_Comm), save :: comm
+#endif
    logical, save :: initialized = .false.
 
    integer :: ierror
@@ -79,7 +87,11 @@ contains
 
    subroutine mpi_wrapper_initialize(mpiroot, mpicomm)
       integer, intent(in) :: mpiroot
+#ifdef MPAS
+      integer, intent(in) :: mpicomm
+#else
       type(MPI_Comm), intent(in) :: mpicomm
+#endif
       if (initialized) return
       root = mpiroot
       comm = mpicomm
@@ -93,7 +105,11 @@ contains
       mype = -999
       npes = -999
       root = -999
+#ifdef MPAS
+      comm = MPI_COMM_NULL
+#else
       comm%mpi_val = -999
+#endif
       initialized = .false.
    end subroutine mpi_wrapper_finalize
 
