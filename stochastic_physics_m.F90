@@ -98,7 +98,7 @@ if (is_rootpe()) then
 #ifdef STOCH_PHYS_DIAG
   print*, 'sppt_hgt_top1,2:', sppt_hgt_top1, sppt_hgt_top2 
 #endif
-  call find_ktop(zk, levs+1, sppt_hgt_top1,sppt_hgt_top2,k_top)
+  call find_ktop(zk, levs+1, sppt_hgt_top1, sppt_hgt_top2, k_top)
 endif
 
 #ifdef STOCH_PHYS_DIAG
@@ -233,8 +233,9 @@ deallocate(tmp_wts)
 
 end subroutine run_stochastic_physics
 
-subroutine find_ktop(zk, nvlsp1,  hgt_top1, hgt_top2, k_top)
-  real(kind=kind_phys), intent(in) :: zk(nvlsp1), hgt_top1, hgt_top2 
+subroutine find_ktop(zk, nvlsp1, hgt_top1, hgt_top2, k_top)
+  real(kind=kind_phys), intent(in) :: zk(nvlsp1)
+  real(kind=kind_dbl_prec), intent(in) :: hgt_top1, hgt_top2 
   integer, intent(in) :: nvlsp1
   integer, intent(out) :: k_top(2)
 
