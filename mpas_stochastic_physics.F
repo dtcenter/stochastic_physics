@@ -1,9 +1,9 @@
 module mpas_stochastic_physics
   use kinddef, only: kind_phys, RKIND
-#ifdef MPAS
-  use mpi
-#else
+#ifdef MPAS_USE_MPI_F08
   use mpi_f08
+#else
+  use mpi
 #endif
   use mpas_pool_routines
   use mpas_log, only : mpas_log_write, mpas_log_info
@@ -87,10 +87,10 @@ module mpas_stochastic_physics
     type(mpas_pool_type) :: configPool
     type(block_type),pointer:: block
     integer :: maxblk, blk_sz(16)
-#ifdef MPAS
-    integer :: mpi_comm
-#else
+#ifdef MPAS_USE_MPI_F08
     type(MPI_comm) ::  mpi_comm
+#else
+    integer :: mpi_comm
 #endif
     integer :: mpi_root, pid
     integer :: iret
