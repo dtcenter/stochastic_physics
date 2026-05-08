@@ -6,7 +6,7 @@ module spectral_transforms
  use stochy_internal_state_mod, only : stochy_internal_state
  use stochy_namelist_def
 
-      private 
+      private
       public :: spec_to_four, four_to_grid,dozeuv_stochy,dezouv_stochy
       public :: initialize_spectral,stochy_la2ga
 
@@ -23,6 +23,19 @@ module spectral_transforms
       real(kind_dbl_prec), public, allocatable, dimension(:) ::  colrad_a, wgt_a, rcs2_a, &
                                        sinlat_a, coslat_a
 
+#if defined(MPAS) || (defined(FV3) && defined(CESMCOUPLED) == 0)
+      interface
+         subroutine dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc) &
+              bind(C, name="esmf_dgemm_")
+           use iso_c_binding
+           character(kind=c_char), intent(in) :: transa, transb
+           integer(c_int), intent(in) :: m, n, k, lda, ldb, ldc
+           real(c_double), intent(in) :: alpha, beta
+           real(c_double), intent(in) :: a(lda,*), b(ldb,*)
+           real(c_double), intent(inout) :: c(ldc,*)
+         end subroutine dgemm
+      end interface
+#endif
 
       contains
 
@@ -36,17 +49,14 @@ module spectral_transforms
                                lats_node,ipt_lats_node, &
                                nvars )
 !
-
       implicit none
+
 !
-#ifdef FV3
-#ifdef CESMCOUPLED
+#if defined(FV3) && defined(CESMCOUPLED)
       external dgemm
-#else
-      external esmf_dgemm
 #endif
-#endif
-!     
+
+!
       integer, intent(in)     :: nvars
       real(kind=kind_dbl_prec) flnev(len_trie_ls,2*nvars)
       real(kind=kind_dbl_prec) flnod(len_trio_ls,2*nvars)
@@ -118,38 +128,17 @@ module spectral_transforms
 !           compute the sum of the even real      terms for each level
 !           compute the sum of the even imaginary terms for each level
 !
-#ifdef FV3
-#ifdef CESMCOUPLED
-        call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
-#else
-        call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
-#endif
-                   cons1, flnev(indev,1), len_trie_ls, plnev(indev,lat1), &
-                   len_trie_ls, cons0,  apev(1,lat1), n2 )
-#endif
-#ifdef MPAS
+
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
                    cons1, flnev(indev,1), len_trie_ls, plnev(indev,lat1), &
                    len_trie_ls, cons0,  apev(1,lat1), n2 )
-#endif
 !
 !           compute the sum of the odd real      terms for each level
 !           compute the sum of the odd imaginary terms for each level
 !
-#ifdef FV3
-#ifdef CESMCOUPLED
-        call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
-#else
-        call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
-#endif
-                   cons1, flnod(indod,1), len_trio_ls, plnod(indod,lat1), &
-                   len_trio_ls, cons0, apod(1,lat1), n2 )
-#endif
-#ifdef MPAS
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
                    cons1, flnod(indod,1), len_trio_ls, plnod(indod,lat1), &
                    len_trio_ls, cons0, apod(1,lat1), n2 )
-#endif
 !
 !cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 !
@@ -252,7 +241,7 @@ module spectral_transforms
       enddo
 !
       return
-      end subroutine spec_to_four 
+      end subroutine spec_to_four
 
 !>@brief The subroutine 'four_to_grid' calculate real values form fourrier coefficients
 !>@details This code is taken from the legacy spectral GFS
@@ -292,12 +281,12 @@ module spectral_transforms
 
 
       SUBROUTINE dcrft_stochy(init,x,ldx,y,ldy,n,nvars, table,n1,wrk,n2)
- 
+
       implicit none
       integer ,intent(in) :: ldx,ldy,n,nvars
       integer init,n1,n2,i,j
       real(kind_dbl_prec) x(ldx,nvars),y(ldy,nvars),table(44002),wrk
- 
+
       IF (init.ne.0) THEN
          CALL rffti_stochy(n,table)
       ELSE
@@ -309,7 +298,7 @@ module spectral_transforms
             CALL rfftb_stochy(n,y(:,j),table)
          ENDDO
       ENDIF
- 
+
       RETURN
       END
 
@@ -325,7 +314,7 @@ module spectral_transforms
 
       implicit none
 
-      real(kind_dbl_prec), intent(inout) :: R(:)  
+      real(kind_dbl_prec), intent(inout) :: R(:)
       real(kind_dbl_prec), intent(inout) :: WSAVE(44002)
 
       integer :: N
@@ -421,12 +410,12 @@ module spectral_transforms
 
 
       SUBROUTINE RFFTI1_STOCHY (N,WA,RFAC)
-      
+
       implicit none
-      
+
       integer, intent(in) :: N
       REAL(kind_dbl_prec), intent(inout) :: WA(:)
-      REAL(kind_dbl_prec), intent(inout) :: RFAC(:) 
+      REAL(kind_dbl_prec), intent(inout) :: RFAC(:)
 
       integer :: NTRYH(4)
       integer :: NL,NF, I, J, NQ,NR,LD,FI,IS,ID,L1,L2,IP
@@ -505,7 +494,7 @@ module spectral_transforms
       SUBROUTINE RADB2_STOCHY (IDO,L1,CC,CH,WA1)
 
       implicit none
-     
+
       integer, intent(in) :: IDO
       integer, intent(in) :: L1
       real(kind_dbl_prec), intent(inout) :: CC(IDO,2,L1)
@@ -1895,7 +1884,7 @@ module spectral_transforms
       integer :: nodesio,                       &
                  jcount,jpt,lat,lats_sum,node,i,ii,  &
                  ngrptg,ngrptl,ipe,irest,idp,        &
-                 ngrptgh,nodesioh           
+                 ngrptgh,nodesioh
 !
       integer,allocatable :: lats_hold(:,:)
 !
@@ -1994,7 +1983,7 @@ module spectral_transforms
       return
       end
 
-!>@brief The subroutine 'glats_stochy' calculate the latitudes for the gaussian grid 
+!>@brief The subroutine 'glats_stochy' calculate the latitudes for the gaussian grid
 !>@details This code is taken from the legacy spectral GFS
       subroutine glats_stochy(lgghaf,colrad,wgt,rcs2)
 !
