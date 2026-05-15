@@ -6,6 +6,11 @@
                      description="logical flag for stochastic physics SPPT"
                      possible_values="logical values"/>
 
+		<nml_option name="config_tend_names_phys" type="character" default_value="none"
+                     units="-"
+                     description="list of stochastic physics tendency names to perturb, seperated by comma"
+                     possible_values="rucuten-rucvten-rublten-rvblten"/>
+
                 <nml_option name="do_skeb" type="logical" default_value="false" 
                      units="-"
                      description="logical flag for stochastic physics SKEB"

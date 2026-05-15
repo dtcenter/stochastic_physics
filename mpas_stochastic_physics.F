@@ -99,6 +99,7 @@ module mpas_stochastic_physics
     real(kind=kind_phys):: sppt_amp, dtp
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
+    character(len=256) :: config_tend_names_phys
     
     pid = domain%dminfo%my_proc_id  
     configPool = domain%blocklist%configs
@@ -117,6 +118,7 @@ module mpas_stochastic_physics
     ! There are two ways to apply the perturbations:
     ! 1) Process level physics tendencies (e.g., Wind components from Convection)
     ! 2) Accumulated state tendencies (e.g., Prognositc dycore tendencies (e.g., tend_rtheta))
+    call mpas_pool_get_config(configPool, 'config_tend_names_phys', config_tend_names_phys)
     allocate(tend_names_phys(4))
     allocate(tend_names_prog(1))
     tend_names_phys(1) = "rucuten"
@@ -124,7 +126,7 @@ module mpas_stochastic_physics
     tend_names_phys(3) = "rublten"
     tend_names_phys(4) = "rvblten"
     tend_names_prog(5) = "tend_rtheta_physics"
-
+    print("SWALES config_tend_names_phys = ",config_tend_names_phys)
     call mpas_pool_get_config(configPool, 'config_dt', dt)
     call mpas_pool_get_config(configPool, 'config_spptint', spptint)
 
@@ -315,7 +317,7 @@ module mpas_stochastic_physics
     integer, intent(out) :: ierr
 
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
-    character(len=32), dimension(:) :: pointer :: tend_names
+    character(len=32), dimension(:), pointer :: tend_names
     type(block_type),pointer:: block
     integer :: i, j, k, nblks, pid
     character(len=32) :: tend
