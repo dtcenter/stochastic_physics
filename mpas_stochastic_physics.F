@@ -225,7 +225,7 @@ module mpas_stochastic_physics
   end subroutine stochastic_physics_pattern_init
 
   subroutine parse_tend_names(config_tend_names, tend_names)
-      character(len=256), intent(in) :: config_tend_names_phys
+      character(len=256), intent(in) :: config_tend_names
       character(len=32), allocatable, intent(inout) :: tend_names
 
       allocate(tend_names(4))
