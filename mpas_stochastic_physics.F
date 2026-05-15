@@ -99,8 +99,8 @@ module mpas_stochastic_physics
     real(kind=kind_phys):: sppt_amp, dtp
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
-    character(len=256) :: config_tend_names_phys
-    
+    character(len=StrKIND), pointer :: config_tend_names_phys
+
     pid = domain%dminfo%my_proc_id  
     configPool = domain%blocklist%configs
 
@@ -226,7 +226,7 @@ module mpas_stochastic_physics
 
   subroutine parse_tend_names(config_tend_names, tend_names)
       character(len=256), intent(in) :: config_tend_names
-      character(len=32), allocatable, intent(inout) :: tend_names(:)
+      character(len=32), pointer, intent(inout) :: tend_names(:)
 
       allocate(tend_names(4))
       tend_names(1) = "rucuten"
