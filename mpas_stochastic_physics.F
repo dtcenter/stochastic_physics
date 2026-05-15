@@ -99,7 +99,6 @@ module mpas_stochastic_physics
     real(kind=kind_phys):: sppt_amp, dtp
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
-    character(len=StrKIND), pointer :: config_tend_names_phys
 
     pid = domain%dminfo%my_proc_id  
     configPool = domain%blocklist%configs
@@ -118,12 +117,16 @@ module mpas_stochastic_physics
     ! There are two ways to apply the perturbations:
     ! 1) Process level physics tendencies (e.g., Wind components from Convection)
     ! 2) Accumulated state tendencies (e.g., Prognositc dycore tendencies (e.g., tend_rtheta))
-    call mpas_pool_get_config(configPool, 'config_tend_names_phys', config_tend_names_phys)
-    call parse_tend_names(config_tend_names_phys, tend_names_phys)
-
-    allocate(tend_names_prog(1))
-    tend_names_prog(5) = "tend_rtheta_physics"
-    print*,"SWALES config_tend_names_phys = ",config_tend_names_phys
+    ! These tendencies are perturbed, IF SPPT is true, AND they are allocated
+    allocate(tend_names_phys(4))
+    tend_names_phys(1) = "rucuten"
+    tend_names_phys(2) = "rvcuten"
+    tend_names_phys(3) = "rublten"
+    tend_names_phys(4) = "rvblten"
+    allocate(tend_names_prog(2))
+    tend_names_prog(1) = "tend_rtheta_physics"
+    tend_names_prog(2) = "tend_rho_physics"
+      
     call mpas_pool_get_config(configPool, 'config_dt', dt)
     call mpas_pool_get_config(configPool, 'config_spptint', spptint)
 
@@ -224,17 +227,6 @@ module mpas_stochastic_physics
 
   end subroutine stochastic_physics_pattern_init
 
-  subroutine parse_tend_names(config_tend_names, tend_names)
-      character(len=256), intent(in) :: config_tend_names
-      character(len=32), pointer, intent(inout) :: tend_names(:)
-
-      allocate(tend_names(4))
-      tend_names(1) = "rucuten"
-      tend_names(2) = "rvcuten"
-      tend_names(3) = "rublten"
-      tend_names(4) = "rvblten"
-      
-  end subroutine parse_tend_names
    !***********************************************************************
    !
    !  routine stochastic_physics_pattern_adv
@@ -363,37 +355,37 @@ module mpas_stochastic_physics
      select case (trim(tend))
        case ("rucuten")
          call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
+         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
 #ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rucuten'
 #endif
        case ("rvcuten")
          call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
+         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
 #ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
 #endif
        case ("rublten")
          call mpas_pool_get_array(tend_physics,'rublten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
+         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
 #ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rublten'
 #endif
        case ("rvblten")
          call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
+         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
 #ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rvblten'
 #endif
        case ("tend_rtheta_physics")
          call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
+         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
 #ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rtheta'
 #endif
        case ("tend_rho_physics")
          call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
+         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
 #ifdef STOCH_PHYS_DIAG
          if (pid == 0) print*, 'apply perturbation pattern to rho'
 #endif
