@@ -49,8 +49,8 @@ module mpas_stochastic_physics
   real(kind=RKIND), pointer :: sppt_tau_1, sppt_tau_2, sppt_tau_3
   real(kind=RKIND), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3
   integer, pointer :: spptint
-  character(len=32), allocatable, dimension(:) :: tend_names_phys
-  character(len=32), allocatable, dimension(:) :: tend_names_prog
+  character(len=32), pointer, dimension(:) :: tend_names_phys
+  character(len=32), pointer, dimension(:) :: tend_names_prog
 
   integer, save :: nblks
 
@@ -119,14 +119,11 @@ module mpas_stochastic_physics
     ! 1) Process level physics tendencies (e.g., Wind components from Convection)
     ! 2) Accumulated state tendencies (e.g., Prognositc dycore tendencies (e.g., tend_rtheta))
     call mpas_pool_get_config(configPool, 'config_tend_names_phys', config_tend_names_phys)
-    allocate(tend_names_phys(4))
+    call parse_tend_names(config_tend_names_phys, tend_names_phys)
+
     allocate(tend_names_prog(1))
-    tend_names_phys(1) = "rucuten"
-    tend_names_phys(2) = "rvcuten"
-    tend_names_phys(3) = "rublten"
-    tend_names_phys(4) = "rvblten"
     tend_names_prog(5) = "tend_rtheta_physics"
-    print("SWALES config_tend_names_phys = ",config_tend_names_phys)
+    print*,"SWALES config_tend_names_phys = ",config_tend_names_phys
     call mpas_pool_get_config(configPool, 'config_dt', dt)
     call mpas_pool_get_config(configPool, 'config_spptint', spptint)
 
@@ -227,6 +224,17 @@ module mpas_stochastic_physics
 
   end subroutine stochastic_physics_pattern_init
 
+  subroutine parse_tend_names(config_tend_names, tend_names)
+      character(len=256), intent(in) :: config_tend_names_phys
+      character(len=32), allocatable, intent(inout) :: tend_names
+
+      allocate(tend_names(4))
+      tend_names(1) = "rucuten"
+      tend_names(2) = "rvcuten"
+      tend_names(3) = "rublten"
+      tend_names(4) = "rvblten"
+      
+  end subroutine parse_tend_names
    !***********************************************************************
    !
    !  routine stochastic_physics_pattern_adv
