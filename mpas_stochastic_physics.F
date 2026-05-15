@@ -313,7 +313,7 @@ module mpas_stochastic_physics
    !-----------------------------------------------------------------------
   subroutine stochastic_physics_pattern_apply(domain, tend_category, ierr)
     type(domain_type),intent(in):: domain
-    character(len=32), intent(in) :: tend_category
+    character(len=4), intent(in) :: tend_category
     integer, intent(out) :: ierr
 
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
