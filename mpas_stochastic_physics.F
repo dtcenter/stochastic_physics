@@ -116,7 +116,7 @@ module mpas_stochastic_physics
     ! Set up tendencies for SPPT from namelist.
     ! There are two ways to apply the perturbations:
     ! 1) Process level physics tendencies (e.g., Wind components from Convection)
-    ! 2) Accumulated state tendencies (e.g., Prognositc dycore tendencies (e.g., tend_rtheta))
+    ! 2) Accumulated state tendencies (e.g., Prognositc physics tendencies (e.g., tend_rtheta))
     ! These tendencies are perturbed, IF SPPT is true, AND they are allocated
     allocate(tend_names_phys(4))
     tend_names_phys(1) = "rucuten"
