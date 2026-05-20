@@ -26,6 +26,7 @@ module mpas_stochastic_physics
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts
 !  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
   real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts
+  character(len=32), dimension(:), allocatable  :: tend_names
 
   logical, save :: is_initialized = .false.
   integer, save :: lsoil = -999
@@ -60,6 +61,7 @@ module mpas_stochastic_physics
   public stochastic_physics_pattern_adv
   public stochastic_physics_pattern_apply
   public dosppt
+  public tend_names
 
   contains
 
@@ -103,6 +105,14 @@ module mpas_stochastic_physics
 
     call mpas_log_write(' ')
     call mpas_log_write('--- enter stochastic_physics_pattern_init( )')
+
+    allocate(tend_names(5))
+    tend_names(1) = "rucuten"
+    tend_names(2) = "rvcuten"
+    tend_names(3) = "rublten"
+    tend_names(4) = "rvblten"
+    tend_names(5) = "tend_rtheta_physics"    
+    !tend_names(6) = "tend_rho_physics" 
 
     call mpas_pool_get_config(configPool, 'do_sppt', do_sppt_config)
 
@@ -295,10 +305,9 @@ module mpas_stochastic_physics
    !>  from both PBL and convection schemes, at the cell centers.
    !
    !-----------------------------------------------------------------------
-  subroutine stochastic_physics_pattern_apply(domain, num_tends, tend_names, ierr)
+  subroutine stochastic_physics_pattern_apply(domain, tend_names, ierr)
     type(domain_type),intent(in):: domain
-    integer, intent(in) :: num_tends
-    character(len=32), intent(in) :: tend_names(num_tends)
+    character(len=32), intent(in) :: tend_names(:)
     integer, intent(out) :: ierr
 
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
@@ -326,7 +335,7 @@ module mpas_stochastic_physics
 
  ! retrieve the specified tendencies that needs to be perturbed and
  ! apply the patterns (at all levels) to the tendency      
-   do i = 1, num_tends
+   do i = 1, size(tend_names)
      tend = tend_names(i)
 !     print*, "tendency from physics parameterization to be perturbed:", trim(tend)
      select case (trim(tend))
