@@ -1,8 +1,14 @@
 module kinddef
-#if defined(MPAS) || defined(FV3)
+#if defined(MPAS)
   use mpas_kind_types, only: R4KIND, R8KIND, RKIND, I8KIND, StrKIND
 #endif
-
+#ifndef MPAS
+#ifndef FV3
+  use iso_fortran_env, only: kind_phys     => real64
+  use iso_fortran_env, only: kind_dbl_prec => real64
+  use iso_fortran_env, only: kind_io8      => real64
+#endif
+#endif
   implicit none
 
   private
@@ -10,7 +16,7 @@ module kinddef
   public :: kind_phys
   public :: kind_dbl_prec, kind_qdt_prec
   public :: kind_io8
-#if defined(MPAS) || defined(FV3)
+#if defined(MPAS)
   public :: RKIND, StrKIND
 #endif
 

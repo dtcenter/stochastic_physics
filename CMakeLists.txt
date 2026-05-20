@@ -37,7 +37,6 @@ list(APPEND _stoch_phys_srcs
   spectral_transforms.F90
   stochastic_physics.F90
   stochy_patterngenerator.F90
-  stochy_nml_rec.F90
   stochy_data_mod.F90
   get_stochy_pattern.F90
   cellular_automata_global.F90
@@ -60,6 +59,13 @@ list(APPEND _mpas_stoch_phys_srcs
   stochastic_physics_m.F90
   mpas_stochastic_physics.F90
 )
+
+if (MPAS)
+  add_definitions(-DMPAS)
+endif()
+if (FV3)
+  add_definitions(-DFV3)
+endif()
 
 if(PROJECT_NAME STREQUAL "ufs" AND MPAS)
   add_library(stochastic_physics ${_mpas_stoch_phys_srcs})

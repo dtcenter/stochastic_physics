@@ -12,7 +12,7 @@ module stochy_data_mod
  use spectral_transforms, only: len_trie_ls,len_trio_ls,ls_dim,ls_max_node,&
                               skeblevs,levs,jcap,lonf,latg,initialize_spectral
  use stochy_namelist_def
-#ifdef FV3
+#ifndef MPAS
  use constants_mod, only : radius
 #endif
  use mpi_wrapper, only: mp_bcst, is_rootpe, mype
@@ -59,10 +59,9 @@ module stochy_data_mod
 !>@brief The subroutine 'init_stochdata' determines which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
-#ifdef FV3
+#ifndef MPAS
  subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
-#endif
-#ifdef MPAS
+#else
  subroutine init_stochdata(domain,mype,nlevs,delt,iret)
 #endif
 !\callgraph
@@ -70,12 +69,11 @@ module stochy_data_mod
 ! initialize random patterns.
    use netcdf
    implicit none
-#ifdef FV3
+#ifndef MPAS
    integer, intent(in) :: nlunit,nlevs
    character(len=*),  intent(in) :: input_nml_file(:)
    character(len=64), intent(in) :: fn_nml
-#endif
-#ifdef MPAS
+#else
    type(domain_type),intent(inout):: domain
    integer, intent(in) :: mype,nlevs
 #endif
@@ -98,10 +96,9 @@ module stochy_data_mod
    iret=0
 ! read in namelist
 
-#ifdef FV3
+#ifndef MPAS
    call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
-#endif
-#ifdef MPAS
+#else
    call get_nml_rec (domain,mype,real(delt),iret)
 #endif
 
@@ -528,7 +525,7 @@ module stochy_data_mod
 
  use netcdf
  use compns_stochy_mod, only : compns_stochy_ocn
-#ifdef FV3
+#ifndef MPAS
  use mpp_domains_mod,     only: mpp_broadcast_domain,MPP_DOMAIN_TIME,mpp_domains_init ,mpp_domains_set_stack_size
 #endif
 ! initialize random patterns.  A spinup period of spinup_efolds times the
