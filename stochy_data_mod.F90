@@ -59,23 +59,23 @@ module stochy_data_mod
 !>@brief The subroutine 'init_stochdata' determines which stochastic physics
 !!pattern genertors are needed.
 !>@details it reads the nam_stochy namelist and allocates necessary arrays
-#ifndef MPAS
- subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
-#else
+#ifdef MPAS
  subroutine init_stochdata(domain,mype,nlevs,delt,iret)
+#else
+ subroutine init_stochdata(nlevs,delt,input_nml_file,fn_nml,nlunit,iret)
 #endif
 !\callgraph
 
 ! initialize random patterns.
    use netcdf
    implicit none
-#ifndef MPAS
+#ifdef MPAS
+   type(domain_type),intent(inout):: domain
+   integer, intent(in) :: mype,nlevs
+#else
    integer, intent(in) :: nlunit,nlevs
    character(len=*),  intent(in) :: input_nml_file(:)
    character(len=64), intent(in) :: fn_nml
-#else
-   type(domain_type),intent(inout):: domain
-   integer, intent(in) :: mype,nlevs
 #endif
    real(kind=kind_phys), intent(in) :: delt
    integer, intent(out) :: iret
@@ -96,10 +96,10 @@ module stochy_data_mod
    iret=0
 ! read in namelist
 
-#ifndef MPAS
-   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
-#else
+#ifdef MPAS
    call get_nml_rec (domain,mype,real(delt),iret)
+#else
+   call compns_stochy (mype,size(input_nml_file,1),input_nml_file(:),fn_nml,nlunit,real(delt,kind=kind_phys),iret)
 #endif
 
    if (iret/=0) return  ! need to make sure that non-zero irets are being trapped.

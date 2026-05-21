@@ -4,7 +4,7 @@ module stochastic_physics
 
 use mpi_f08
 use kinddef, only : kind_phys, kind_dbl_prec
-#ifndef MPAS
+#ifdef MPAS
 use mpp_mod ,only: mpp_pe,mpp_root_pe
 #else
 use mpi_wrapper, only: is_rootpe
@@ -333,7 +333,7 @@ INTTYP = 0 ! bilinear interpolation
 km     = nz
 !DJS
 on_mpi_master=.false.
-#ifndef MPAS
+#ifdef MPAS
 if (mpp_pe()==mpp_root_pe()) on_mpi_master=.true.
 #else
 if (is_rootpe()) on_mpi_master=.true.
