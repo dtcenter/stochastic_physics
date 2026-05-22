@@ -117,7 +117,9 @@ module mpas_stochastic_physics
     ! There are two ways to apply the perturbations:
     ! 1) Process level physics tendencies (e.g., Wind components from Convection)
     ! 2) Accumulated state tendencies (e.g., Prognositc physics tendencies (e.g., tend_rtheta))
-    ! These tendencies are perturbed, IF SPPT is true, AND they are allocated
+    ! One or the other set of these tendencies is perturbed
+    ! only if SPPT is true AND the tendenciesd are allocated.
+    !  they are allocated
     allocate(tend_names_phys(4))
     tend_names_phys(1) = "rucuten"
     tend_names_phys(2) = "rvcuten"
@@ -125,7 +127,8 @@ module mpas_stochastic_physics
     tend_names_phys(4) = "rvblten"
     allocate(tend_names_prog(2))
     tend_names_prog(1) = "tend_rtheta_physics"
-    tend_names_prog(2) = "tend_rho_physics"
+    !tend_names_prog(2) = "tend_rho_physics"
+    tend_names_prog(2) = "tend_u_physics"
       
     call mpas_pool_get_config(configPool, 'config_dt', dt)
     call mpas_pool_get_config(configPool, 'config_spptint', spptint)
