@@ -354,46 +354,19 @@ module mpas_stochastic_physics
  ! apply the patterns (at all levels) to the tendency      
    do i = 1, size(tend_names)
      tend = tend_names(i)
-!     print*, "tendency from physics parameterization to be perturbed:", trim(tend)
      select case (trim(tend))
-       case ("rucuten")
-         call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
-         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rucuten'
-#endif
-       case ("rvcuten")
-         call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
-         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
-#endif
-       case ("rublten")
-         call mpas_pool_get_array(tend_physics,'rublten',tend_array)
-         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rublten'
-#endif
-       case ("rvblten")
-         call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
-         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rvblten'
-#endif
-       case ("tend_rtheta_physics")
-         call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
-         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rtheta'
-#endif
-       case ("tend_rho_physics")
-         call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
-         if (associated(tend_array)) call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rho'
-#endif
+       ! The following is a list of tendencies that SPPT may perturb.  This will have
+       ! to be modified for other stochastic physics schemes.
+       case ("rucuten", "rvcuten", "rublten", "rvblten", "tend_rtheta_physics")
+         call mpas_pool_get_array(tend_physics, trim(tend), tend_array)
+         if (associated(tend_array)) then
+           call mpas_log_write('Applying perturbation to tendency: "' // trim(tend) // '"')
+           call apply_pattern(tend_array, stoch_pat_sppt)
+         else
+           call mpas_log_write('stochastic_physics_pattern_apply: tendency "' // trim(tend) // '" not allocated.  Not applying perturbation.')
+         endif
        case default 
-         print*, "The specified tendency is unknown and not perturbed." 
+         call mpas_log_write('stochastic_physics_pattern_apply: tendency "' // trim(tend) // '" is not in the list of tendencies that may be perturbed.  Not applying perturbation.')
      end select
    enddo
 
