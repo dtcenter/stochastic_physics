@@ -128,7 +128,7 @@ module mpas_stochastic_physics
     allocate(tend_names_prog(2))
     tend_names_prog(1) = "tend_rtheta_physics"
     !tend_names_prog(2) = "tend_rho_physics"
-    tend_names_prog(2) = "tend_u_physics"
+    tend_names_prog(2) = "tend_ru_physics"
       
     call mpas_pool_get_config(configPool, 'config_dt', dt)
     call mpas_pool_get_config(configPool, 'config_spptint', spptint)
@@ -322,15 +322,18 @@ module mpas_stochastic_physics
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
     character(len=32), dimension(:), pointer :: tend_names
     type(block_type),pointer:: block
-    integer :: i, j, k, nblks, pid
+    integer :: i, j, k, nblks, pid, num_tends_perturbed
     character(len=32) :: tend
+    character(len=:), allocatable :: tend_category_desc, stoch_scheme_name
      
     pid = domain%dminfo%my_proc_id
-      
+
     if (trim(tend_category) == 'phys') then
        tend_names => tend_names_phys
+       tend_category_desc = 'tendencies from individual physics schemes (process level)'
     else if (trim(tend_category) == 'prog') then
        tend_names => tend_names_prog
+       tend_category_desc = 'accumulated physics tendencies in the MPAS prognostic equations for state variables'
     else
        stop "Invalid tend_category: tend_category ="//trim(tend_category)
     end if
@@ -350,25 +353,44 @@ module mpas_stochastic_physics
       call mpas_log_write('--- There are more than one block in this MPI rank! pid = $i', intArgs=(/pid/), messageType=MPAS_LOG_WARN)
     endif
 
- ! retrieve the specified tendencies that needs to be perturbed and
- ! apply the patterns (at all levels) to the tendency      
-   do i = 1, size(tend_names)
-     tend = tend_names(i)
-     select case (trim(tend))
-       ! The following is a list of tendencies that SPPT may perturb.  This will have
-       ! to be modified for other stochastic physics schemes.
-       case ("rucuten", "rvcuten", "rublten", "rvblten", "tend_rtheta_physics")
-         call mpas_pool_get_array(tend_physics, trim(tend), tend_array)
-         if (associated(tend_array)) then
-           call mpas_log_write('Applying perturbation to tendency: "' // trim(tend) // '"')
-           call apply_pattern(tend_array, stoch_pat_sppt)
-         else
-           call mpas_log_write('stochastic_physics_pattern_apply: tendency "' // trim(tend) // '" not allocated.  Not applying perturbation.')
-         endif
-       case default 
-         call mpas_log_write('stochastic_physics_pattern_apply: tendency "' // trim(tend) // '" is not in the list of tendencies that may be perturbed.  Not applying perturbation.')
-     end select
-   enddo
+! If SPPT is enabled, retrieve the specified tendencies that need to be perturbed
+! and apply the patterns (at all levels) to the tendency.
+   if (do_sppt) then
+     stoch_scheme_name = "SPPT"
+!     call mpas_log_write('Attempting to apply ' // trim(stoch_scheme_name) // ' perturbations to tendencies...')
+!     call mpas_log_write('Attempting to apply ' // trim(stoch_scheme_name) // ' perturbations to ' // trim(tend_category_desc) // ' tendencies...')
+     call mpas_log_write( &
+          'Attempting to apply ' // trim(stoch_scheme_name) // ' perturbations to ' // &
+          'tendencies in the "' // trim(tend_category) // '" category, i.e. ' // &
+          trim(tend_category_desc) // '...')
+     num_tends_perturbed = 0
+     do i = 1, size(tend_names)
+       tend = tend_names(i)
+       select case (trim(tend))
+         ! The following case() contains a list of tendencies that SPPT may perturb.
+         case ("rucuten", "rvcuten", "rublten", "rvblten", "tend_rtheta_physics")
+           call mpas_pool_get_array(tend_physics, trim(tend), tend_array)
+           if (associated(tend_array)) then
+             call mpas_log_write( &
+                  '  Applying ' // trim(stoch_scheme_name) // ' perturbation to tendency: "' // trim(tend) // '"')
+             call apply_pattern(tend_array, stoch_pat_sppt)
+             num_tends_perturbed = num_tends_perturbed + 1
+           else
+             call mpas_log_write( &
+                  '  Not applying ' // trim(stoch_scheme_name) // ' perturbation to tendency "' // &
+                  trim(tend) // '" because that tendency is not allocated.')
+           endif
+         case default 
+           call mpas_log_write( &
+                '  Not applying ' // trim(stoch_scheme_name) // ' perturbation to tendency "' // &
+                trim(tend) // '" because it is not in the list of tendencies that may be perturbed by ' // &
+                trim(stoch_scheme_name) // '.')
+       end select
+     enddo
+     call mpas_log_write('A total of $i tendencies were perturbed by the ' // &
+                         trim(stoch_scheme_name) // ' stochastic scheme.', &
+                         intArgs=(/num_tends_perturbed/))
+   endif
 
    nullify(tend_names)
    ierr = 0
