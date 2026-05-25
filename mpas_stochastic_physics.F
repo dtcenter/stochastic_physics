@@ -390,41 +390,41 @@ module mpas_stochastic_physics
      call mpas_log_write('') 
      call mpas_log_write( &
           'Attempting to apply ' // trim(stoch_scheme_name) // ' perturbations to ' // &
-          'tendencies in the "' // trim(tend_category) // '" category, i.e. ' // &
-          trim(tend_category_desc) // '...')
+          'tendencies in the "' // trim(tend_category) // '" category, i.e.')
      call mpas_log_write( &
-          'The tendencies that ' // trim(stoch_scheme_name) // ' may perturb are:')
-     call mpas_log_write('  ' // tend_list_str)
-     call mpas_log_write('') 
+          'to ' // trim(tend_category_desc) // '...')
+     call mpas_log_write( &
+          'The tendencies that ' // trim(stoch_scheme_name) // ' may perturb are: ' // &
+          tend_list_str)
 
      num_tends_perturbed = 0
      do i = 1, size(tend_names)
        tend_name = tend_names(i)
+       call mpas_log_write('  tend_name = "' // trim(tend_name) // '":')
        ! If the current tendency is in the list of tendencies that SPPT may perturb
        ! (tend_names_sppt), try to perturb it.
        if (any(tend_name == tend_names_sppt)) then
          call mpas_pool_get_array(tend_physics, trim(tend_name), tend_array)
          if (associated(tend_array)) then
            call mpas_log_write( &
-                '  Applying ' // trim(stoch_scheme_name) // ' perturbation to tendency "' // trim(tend_name) // '"...')
+                '    Applying ' // trim(stoch_scheme_name) // ' perturbation to "' // &
+                trim(tend_name) // '"...')
            call apply_pattern(tend_array, stoch_pat_sppt)
            num_tends_perturbed = num_tends_perturbed + 1
-           call mpas_log_write( &
-                '    Done applying ' // trim(stoch_scheme_name) // ' perturbation to tendency "' // trim(tend_name) // '".')
+           call mpas_log_write( '    Done.')
          else
            call mpas_log_write( &
-                '  Not applying ' // trim(stoch_scheme_name) // ' perturbation to tendency "' // &
-                trim(tend_name) // '" because that tendency is not allocated.')
+                '    Not applying ' // trim(stoch_scheme_name) // ' perturbation to "' // &
+                trim(tend_name) // '" because it is not allocated.')
          endif
        else
          call mpas_log_write( &
-              '  Not applying ' // trim(stoch_scheme_name) // ' perturbation to tendency "' // &
-              trim(tend_name) // '" because it is not in the list of tendencies that may be perturbed by ' // &
-              trim(stoch_scheme_name) // '.')
+              '    Not applying ' // trim(stoch_scheme_name) // ' perturbation to "' // &
+              trim(tend_name) // '" because it is not in the list of tendencies ' // &
+              'that ' // trim(stoch_scheme_name) // ' may perturb.')
        end if
      enddo
 
-     call mpas_log_write('') 
      call mpas_log_write( &
           'Done applying ' // trim(stoch_scheme_name) // ' perturbations to ' // &
           'tendencies in the "' // trim(tend_category) // '" category.  A total ' // &
