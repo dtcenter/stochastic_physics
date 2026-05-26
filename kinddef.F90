@@ -2,7 +2,6 @@ module kinddef
 #ifdef MPAS
   use mpas_kind_types, only: R4KIND, R8KIND, RKIND, I8KIND, StrKIND
 #endif
-
   implicit none
 
   private
