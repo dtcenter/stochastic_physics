@@ -44,14 +44,49 @@ list(APPEND _stoch_phys_srcs
   update_ca.F90
   lndp_apply_perts.F90
 )
+list(APPEND _mpas_stoch_phys_srcs
+  kinddef.F90
+  mpi_wrapper.F90
+  stochy_internal_state_mod.F90
+  stochy_namelist_def.F90
+  spectral_transforms.F90
+  mersenne_twister.F90
+  stochy_patterngenerator.F90
+  compns_stochy.F90
+  stochy_nml_rec.F90
+  stochy_data_mod.F90
+  get_stochy_pattern.F90
+  stochastic_physics_m.F90
+  mpas_stochastic_physics.F90
+)
 
-add_library(stochastic_physics ${_stoch_phys_srcs})
+if (MPAS)
+  add_definitions(-DMPAS)
+endif()
+if (FV3)
+  add_definitions(-DFV3)
+endif()
+
+if(PROJECT_NAME STREQUAL "ufs" AND MPAS)
+  add_library(stochastic_physics ${_mpas_stoch_phys_srcs})
+  add_dependencies(stochastic_physics framework )
+  target_compile_definitions(stochastic_physics PRIVATE MPAS MPAS_USE_MPI_F08)
+  # needed to find mpas_kind_types.mod
+  target_include_directories(stochastic_physics PRIVATE
+    ${CMAKE_BINARY_DIR}/MPAS/module/${CMAKE_Fortran_COMPILER_ID}/${CMAKE_Fortran_COMPILER_VERSION}
+  )
+  target_link_libraries(stochastic_physics PRIVATE
+    ESMF::ESMF
+  )
+else()
+  add_library(stochastic_physics ${_stoch_phys_srcs})
+endif()
 add_dependencies(stochastic_physics fms)
 
 if(32BIT)
   target_compile_definitions(stochastic_physics PRIVATE INTERNAL_FILE_NML OVERLOAD_R4)
 else()
-  target_compile_definitions(stochastic_physics PRIVATE INTERNAL_FILE_NML)  
+  target_compile_definitions(stochastic_physics PRIVATE INTERNAL_FILE_NML)
 endif()
 
 set_target_properties(stochastic_physics PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)

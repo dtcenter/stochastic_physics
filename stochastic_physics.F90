@@ -4,11 +4,10 @@ module stochastic_physics
 
 use mpi_f08
 use kinddef, only : kind_phys, kind_dbl_prec
-#ifdef FV3
-use mpp_mod ,only: mpp_pe,mpp_root_pe
-#endif
 #ifdef MPAS
 use mpi_wrapper, only: is_rootpe
+#else
+use mpp_mod ,only: mpp_pe,mpp_root_pe
 #endif
 implicit none
 
@@ -334,11 +333,10 @@ INTTYP = 0 ! bilinear interpolation
 km     = nz
 !DJS
 on_mpi_master=.false.
-#ifdef FV3
-if (mpp_pe()==mpp_root_pe()) on_mpi_master=.true.
-#endif
 #ifdef MPAS
 if (is_rootpe()) on_mpi_master=.true.
+#else
+if (mpp_pe()==mpp_root_pe()) on_mpi_master=.true.
 #endif
 call init_stochdata_ocn(km, delt, iret, on_mpi_master)
 if (do_sppt_in.neqv.do_ocnsppt) then

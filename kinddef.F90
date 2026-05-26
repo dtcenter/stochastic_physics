@@ -2,7 +2,7 @@ module kinddef
 #ifdef MPAS
   use mpas_kind_types, only: R4KIND, R8KIND, RKIND, I8KIND, StrKIND
 #endif
-  
+
   implicit none
 
   private
@@ -22,9 +22,9 @@ module kinddef
 #else
   integer, parameter :: kind_phys     = 8
 #endif
-  integer, parameter :: kind_io8      = kind_dbl_prec 
+  integer, parameter :: kind_io8      = kind_dbl_prec
 #endif
-  
+
   ! MPAS
 #ifdef MPAS
   integer, parameter :: kind_dbl_prec = R8KIND
@@ -34,6 +34,14 @@ module kinddef
   integer, parameter :: kind_phys     = R8KIND
 #endif
   integer, parameter :: kind_io8      = I8KIND
+#endif
+
+#ifndef MPAS
+#ifndef FV3
+  integer, parameter :: kind_phys     = 8
+  integer, parameter :: kind_dbl_prec = 8
+  integer, parameter :: kind_io8      = kind_dbl_prec
+#endif
 #endif
 
 #ifdef NO_QUAD_PRECISION
