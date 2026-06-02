@@ -46,7 +46,7 @@ module spectral_transforms
 ! in a CESM build, CESM's own libraries already provide a standard dgemm,
 ! so the ESMF wrapper is unnecessary.
 !
-#if defined(CESMCOUPLED) || defined(MPAS)
+#ifdef CESMCOUPLED
       external dgemm
 #else
       external esmf_dgemm
@@ -123,7 +123,7 @@ module spectral_transforms
 !           compute the sum of the even real      terms for each level
 !           compute the sum of the even imaginary terms for each level
 !
-#if defined(CESMCOUPLED) || defined(MPAS)
+#ifdef CESMCOUPLED
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
 #else
         call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+3-l)/2, &
@@ -134,7 +134,7 @@ module spectral_transforms
 !           compute the sum of the odd real      terms for each level
 !           compute the sum of the odd imaginary terms for each level
 !
-#if defined(CESMCOUPLED) || defined(MPAS)
+#ifdef CESMCOUPLED
         call dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
 #else
         call esmf_dgemm('t', 'n', n2, latg2-lat1+1, (jcap+2-l)/2,  &
