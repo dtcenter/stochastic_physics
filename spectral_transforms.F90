@@ -39,7 +39,13 @@ module spectral_transforms
 
       implicit none
 !
-
+! In the UFS, the CESMCOUPLED build-time macro answers the question,
+! "Is this code being compiled as part of a full CESM build, or as a
+! standalone component (e.g., in UFS)?"  In a standalone/UFS build, ESMF
+! is the host framework and provides its own BLAS wrapper (esmf_dgemm);
+! in a CESM build, CESM's own libraries already provide a standard dgemm,
+! so the ESMF wrapper is unnecessary.
+!
 #ifdef CESMCOUPLED
       external dgemm
 #else

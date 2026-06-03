@@ -1,10 +1,6 @@
 module mpas_stochastic_physics
   use kinddef, only: kind_phys, RKIND
-#ifdef MPAS_USE_MPI_F08
   use mpi_f08
-#else
-  use mpi
-#endif
   use mpas_pool_routines
   use mpas_log, only : mpas_log_write, mpas_log_info
   implicit none
@@ -26,7 +22,6 @@ module mpas_stochastic_physics
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: skebv_wts
 !  real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
   real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts
-  character(len=32), dimension(:), allocatable  :: tend_names
 
   logical, save :: is_initialized = .false.
   integer, save :: lsoil = -999
@@ -51,6 +46,11 @@ module mpas_stochastic_physics
   real(kind=RKIND), pointer :: sppt_lscale_1, sppt_lscale_2, sppt_lscale_3
   integer, pointer :: spptint
 
+  integer, parameter :: tend_name_len = 32
+  character(len=tend_name_len), pointer, dimension(:) :: tend_names_phys
+  character(len=tend_name_len), pointer, dimension(:) :: tend_names_prog
+  character(len=tend_name_len), pointer, dimension(:) :: tend_names_sppt
+
   integer, save :: nblks
 
 !----------------
@@ -61,7 +61,6 @@ module mpas_stochastic_physics
   public stochastic_physics_pattern_adv
   public stochastic_physics_pattern_apply
   public dosppt
-  public tend_names
 
   contains
 
@@ -89,30 +88,18 @@ module mpas_stochastic_physics
     type(mpas_pool_type) :: configPool
     type(block_type),pointer:: block
     integer :: maxblk, blk_sz(16)
-#ifdef MPAS_USE_MPI_F08
     type(MPI_comm) ::  mpi_comm
-#else
-    integer :: mpi_comm
-#endif
     integer :: mpi_root, pid
     integer :: iret
     real(kind=kind_phys):: sppt_amp, dtp
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
-    
+
     pid = domain%dminfo%my_proc_id  
     configPool = domain%blocklist%configs
 
     call mpas_log_write(' ')
     call mpas_log_write('--- enter stochastic_physics_pattern_init( )')
-
-    allocate(tend_names(5))
-    tend_names(1) = "rucuten"
-    tend_names(2) = "rvcuten"
-    tend_names(3) = "rublten"
-    tend_names(4) = "rvblten"
-    tend_names(5) = "tend_rtheta_physics"    
-    !tend_names(6) = "tend_rho_physics" 
 
     call mpas_pool_get_config(configPool, 'do_sppt', do_sppt_config)
 
@@ -120,6 +107,39 @@ module mpas_stochastic_physics
       call mpas_log_write('    do_sppt is false, do not perturb physics tendencies.')
       return
     endif
+    !
+    ! The subroutine stochastic_physics_pattern_apply() can apply perturbations
+    ! (from any given stochastic physics scheme, e.g. SPPT, SKEB, etc) to one
+    ! of two categories of tendencies:
+    !
+    ! 1) Process level physics tendencies, e.g. wind component tendencies from
+    !    convection.
+    ! 2) Accumulated physics tendencies that appear in (on the right-hand side
+    !    of) the prognostic equation for a state variable, e.g. the sum of the
+    !    physics tendencies in the thermodynamic evolution equation that MPAS
+    !    solves (named "tend_rtheta_physics").
+    !
+    ! Specify the names of these two categories of tendencies.
+    !
+    allocate(tend_names_phys(4))
+    tend_names_phys(1) = "rucuten"
+    tend_names_phys(2) = "rvcuten"
+    tend_names_phys(3) = "rublten"
+    tend_names_phys(4) = "rvblten"
+    allocate(tend_names_prog(2))
+    tend_names_prog(1) = "tend_rtheta_physics"
+    !tend_names_prog(2) = "tend_rho_physics"
+    tend_names_prog(2) = "tend_ru_physics"
+    !
+    ! Set all tendencies (process-level and accumulated state tendencies) that
+    ! SPPT may perturb.
+    !
+    allocate(tend_names_sppt(5))
+    tend_names_sppt(1) = "rucuten"
+    tend_names_sppt(2) = "rvcuten"
+    tend_names_sppt(3) = "rublten"
+    tend_names_sppt(4) = "rvblten"
+    tend_names_sppt(5) = "tend_rtheta_physics"
 
     call mpas_pool_get_config(configPool, 'config_dt', dt)
     call mpas_pool_get_config(configPool, 'config_spptint', spptint)
@@ -305,18 +325,29 @@ module mpas_stochastic_physics
    !>  from both PBL and convection schemes, at the cell centers.
    !
    !-----------------------------------------------------------------------
-  subroutine stochastic_physics_pattern_apply(domain, tend_names, ierr)
+  subroutine stochastic_physics_pattern_apply(domain, tend_category, ierr)
     type(domain_type),intent(in):: domain
-    character(len=32), intent(in) :: tend_names(:)
+    character(len=4), intent(in) :: tend_category
     integer, intent(out) :: ierr
 
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
-
+    character(len=tend_name_len), dimension(:), pointer :: tend_names
     type(block_type),pointer:: block
-    integer :: i, j, k, nblks, pid
-    character(len=32) :: tend
-     
-    pid = domain%dminfo%my_proc_id  
+    integer :: i, j, k, nblks, pid, num_tends_perturbed
+    character(len=tend_name_len) :: tend_name
+    character(len=:), allocatable :: tend_category_desc, stoch_scheme_name, tend_list_str
+
+    pid = domain%dminfo%my_proc_id
+
+    if (trim(tend_category) == 'phys') then
+       tend_names => tend_names_phys
+       tend_category_desc = 'tendencies from individual physics schemes'
+    else if (trim(tend_category) == 'prog') then
+       tend_names => tend_names_prog
+       tend_category_desc = 'accumulated physics tendencies in the MPAS prognostic equations for state variables'
+    else
+       stop "Invalid tend_category: tend_category ="//trim(tend_category)
+    end if
 
 #ifdef STOCH_PHYS_DIAG
     if (pid == 0) print*, 'Enter stochastic_physics_pattern_apply, pid = ', pid
@@ -333,53 +364,68 @@ module mpas_stochastic_physics
       call mpas_log_write('--- There are more than one block in this MPI rank! pid = $i', intArgs=(/pid/), messageType=MPAS_LOG_WARN)
     endif
 
- ! retrieve the specified tendencies that needs to be perturbed and
- ! apply the patterns (at all levels) to the tendency      
-   do i = 1, size(tend_names)
-     tend = tend_names(i)
-!     print*, "tendency from physics parameterization to be perturbed:", trim(tend)
-     select case (trim(tend))
-       case ("rucuten")
-         call mpas_pool_get_array(tend_physics,'rucuten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rucuten'
-#endif
-       case ("rvcuten")
-         call mpas_pool_get_array(tend_physics,'rvcuten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rvcuten'
-#endif
-       case ("rublten")
-         call mpas_pool_get_array(tend_physics,'rublten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rublten'
-#endif
-       case ("rvblten")
-         call mpas_pool_get_array(tend_physics,'rvblten',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rvblten'
-#endif
-       case ("tend_rtheta_physics")
-         call mpas_pool_get_array(tend_physics,'tend_rtheta_physics',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rtheta'
-#endif
-       case ("tend_rho_physics")
-         call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
-         call apply_pattern(tend_array, stoch_pat_sppt)
-#ifdef STOCH_PHYS_DIAG
-         if (pid == 0) print*, 'apply perturbation pattern to rho'
-#endif
-       case default 
-         print*, "The specified tendency is unknown and not perturbed." 
-     end select
-   enddo
+! If SPPT is enabled, retrieve the specified tendencies that need to be perturbed
+! and apply the patterns (at all levels) to the tendency.
+   if (do_sppt) then
 
+     stoch_scheme_name = "SPPT"
+
+     tend_list_str = ''
+     do i = 1, size(tend_names_sppt)
+       if (i == 1) then
+         tend_list_str = '"' // trim(tend_names_sppt(i)) // '"'
+       else
+         tend_list_str = tend_list_str // ', "' // trim(tend_names_sppt(i)) // '"'
+       end if
+     end do
+
+     call mpas_log_write('') 
+     call mpas_log_write( &
+          'Attempting to apply ' // trim(stoch_scheme_name) // ' perturbations to ' // &
+          'tendencies in the "' // trim(tend_category) // '" category, i.e.')
+     call mpas_log_write( &
+          'to ' // trim(tend_category_desc) // '...')
+     call mpas_log_write( &
+          'The tendencies that ' // trim(stoch_scheme_name) // ' may perturb are: ' // &
+          tend_list_str)
+
+     num_tends_perturbed = 0
+     do i = 1, size(tend_names)
+       tend_name = tend_names(i)
+       call mpas_log_write('  tend_name = "' // trim(tend_name) // '":')
+       ! If the current tendency is in the list of tendencies that SPPT may perturb
+       ! (tend_names_sppt), try to perturb it.
+       if (any(tend_name == tend_names_sppt)) then
+         call mpas_pool_get_array(tend_physics, trim(tend_name), tend_array)
+         if (associated(tend_array)) then
+           call mpas_log_write( &
+                '    Applying ' // trim(stoch_scheme_name) // ' perturbation to "' // &
+                trim(tend_name) // '"...')
+           call apply_pattern(tend_array, stoch_pat_sppt)
+           num_tends_perturbed = num_tends_perturbed + 1
+           call mpas_log_write( '    Done.')
+         else
+           call mpas_log_write( &
+                '    Not applying ' // trim(stoch_scheme_name) // ' perturbation to "' // &
+                trim(tend_name) // '" because it is not allocated.')
+         endif
+       else
+         call mpas_log_write( &
+              '    Not applying ' // trim(stoch_scheme_name) // ' perturbation to "' // &
+              trim(tend_name) // '" because it is not in the list of tendencies ' // &
+              'that ' // trim(stoch_scheme_name) // ' may perturb.')
+       end if
+     enddo
+
+     call mpas_log_write( &
+          'Done applying ' // trim(stoch_scheme_name) // ' perturbations to ' // &
+          'tendencies in the "' // trim(tend_category) // '" category.  A total ' // &
+          'of $i tendencies were perturbed.', &
+          intArgs=(/num_tends_perturbed/))
+
+   endif
+
+   nullify(tend_names)
    ierr = 0
 
   end subroutine stochastic_physics_pattern_apply

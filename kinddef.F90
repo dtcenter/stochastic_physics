@@ -42,7 +42,7 @@ module kinddef
   integer, parameter :: kind_io8      = kind_dbl_prec
 #endif
 #endif
-  
+
 #ifdef NO_QUAD_PRECISION
   integer, parameter :: kind_qdt_prec = 8
 #else
