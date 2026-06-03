@@ -83,9 +83,6 @@ else()
 endif()
 add_dependencies(stochastic_physics fms)
 
-
-
-
 if(32BIT)
   target_compile_definitions(stochastic_physics PRIVATE INTERNAL_FILE_NML OVERLOAD_R4)
 else()
