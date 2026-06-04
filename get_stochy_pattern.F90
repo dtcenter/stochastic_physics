@@ -9,7 +9,7 @@ module get_stochy_pattern_mod
  use stochy_namelist_def, only : n_var_lndp, ntrunc, stochini,n_var_spp
  use stochy_data_mod, only : gg_lats, gg_lons, inttyp, nskeb, nshum, nsppt, &
                              nocnsppt,nepbl,nlndp,                          &
-                             rnlat, rpattern_sfc, rpattern_skeb,            &
+                             rnlat, rpattern_sfc, rpattern_skebuv,            &
                              rpattern_shum, rpattern_sppt, rpattern_ocnsppt,&
                              rpattern_epbl1, rpattern_epbl2, skebu_save,    &
                              nspp,rpattern_spp,                             &
@@ -24,6 +24,7 @@ module get_stochy_pattern_mod
 
  public  get_random_pattern_vector,get_random_pattern_spp 
  public  get_random_pattern_sfc,get_random_pattern_scalar
+ public  get_one_random_pattern_vector
  public  write_stoch_restart_atm,write_stoch_restart_ocn
  logical :: first_call=.true.
  contains
@@ -220,6 +221,81 @@ subroutine get_random_pattern_vector(rpattern,npatterns,&
   first_call=.false.
 
 end subroutine get_random_pattern_vector   
+
+subroutine get_one_random_pattern_vector(rpattern,npatterns,&
+           gis_stochy,upattern_2d,vpattern_2d)
+!\callgraph
+
+! generate a random pattern for stochastic physics
+ implicit none
+ type(stochy_internal_state), intent(in) :: gis_stochy
+ type(random_pattern), intent(inout) :: rpattern(npatterns)
+
+ real(kind=kind_dbl_prec), dimension(len_trie_ls,2) ::  vrtspec_e,divspec_e
+ real(kind=kind_dbl_prec), dimension(len_trio_ls,2) ::  vrtspec_o,divspec_o
+ integer::   npatterns
+
+ real(kind=kind_dbl_prec) :: upattern_2d(gis_stochy%nx,gis_stochy%ny)
+ real(kind=kind_dbl_prec) :: vpattern_2d(gis_stochy%nx,gis_stochy%ny)
+
+ real(kind=kind_dbl_prec) :: pattern_1d(gis_stochy%nx)
+ integer i,j,lat,n,nn,k
+ real(kind_phys), dimension(lonf,gis_stochy%lats_node_a,1):: wrk2du,wrk2dv
+
+! logical lprint
+
+ real(kind_dbl_prec), allocatable, dimension(:,:) :: workgu,workgv
+ integer kmsk0(lonf,gis_stochy%lats_node_a)
+ kmsk0 = 0
+ allocate(workgu(lonf,latg))
+ allocate(workgv(lonf,latg))
+
+ first_call=.false.
+ skeblevs = 1 
+ workgu = 0.
+ workgv = 0.
+ do n=1,npatterns
+       call patterngenerator_advance(rpattern(n),skeblevs,first_call)
+  ! ke norm (convert streamfunction forcing to vorticity forcing)
+    divspec_e = 0; divspec_o = 0.
+    do nn=1,2
+       vrtspec_e(:,nn) = gis_stochy%kenorm_e*rpattern(n)%spec_e(:,nn,skeblevs)
+       vrtspec_o(:,nn) = gis_stochy%kenorm_o*rpattern(n)%spec_o(:,nn,skeblevs)
+    enddo
+
+
+  ! convert to winds
+    call vrtdivspect_to_uvgrid(&
+           divspec_e,divspec_o,vrtspec_e,vrtspec_o,&
+           wrk2du,wrk2dv, gis_stochy)
+    do i=1,lonf
+       do j=1,gis_stochy%lats_node_a
+          lat=gis_stochy%global_lats_a(gis_stochy%ipt_lats_node_a-1+j)
+          workgu(i,lat) = workgu(i,lat) + wrk2du(i,j,1)
+          workgv(i,lat) = workgv(i,lat) + wrk2dv(i,j,1)
+       enddo
+    enddo
+ enddo
+ call mp_reduce_sum(workgu,lonf,latg)
+ call mp_reduce_sum(workgv,lonf,latg)
+ ! interpolate to cube grid
+ do j=1,gis_stochy%ny
+    pattern_1d = 0
+    associate( tlats=>gis_stochy%parent_lats(:,j),&
+               tlons=>gis_stochy%parent_lons(:,j))
+    call stochy_la2ga(workgu,lonf,latg,gg_lons,gg_lats,wlon,rnlat,&
+                      pattern_1d(1:gis_stochy%len(j)),gis_stochy%len(j),tlats,tlons)
+    upattern_2d(:,j)=pattern_1d(:)
+    call stochy_la2ga(workgv,lonf,latg,gg_lons,gg_lats,wlon,rnlat,&
+                      pattern_1d(1:gis_stochy%len(j)),gis_stochy%len(j),tlats,tlons)
+    vpattern_2d(:,j)=-1*pattern_1d(:)
+    end associate
+  enddo
+  deallocate(workgu)
+  deallocate(workgv)
+
+
+end subroutine get_one_random_pattern_vector   
 
 !>@brief The subroutine 'get_random_pattern_scalar' converts spherical harmonics to the gaussian grid then interpolates to the target grid
 !>@details This subroutine is for a 2-D (lat-lon) scalar field
@@ -482,7 +558,7 @@ subroutine write_stoch_restart_atm(sfile)
     if (nskeb > 0) then
        do n=1,nskeb
           do k=1,skeblevs
-             call write_pattern(rpattern_skeb(n),ncid,k,n,varid3a,varid3b,.true.,ierr)
+             call write_pattern(rpattern_skebuv(n),ncid,k,n,varid3a,varid3b,.true.,ierr)
           enddo
        enddo
     endif

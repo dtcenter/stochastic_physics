@@ -26,9 +26,13 @@ subroutine init_stochastic_physics(domain, levs, blksz, dtp, sppt_amp, &
          xlon, xlat, zk, mpicomm, mpiroot, iret) 
 !\callgraph
 !use stochy_internal_state_moa
+!use stochy_data_mod, only : init_stochdata,gg_lats,gg_lons,nsppt, &
+!                            rad2deg,INTTYP,wlon,rnlat,gis_stochy, &
+!                            vfact_sppt,sl
 use stochy_data_mod, only : init_stochdata,gg_lats,gg_lons,nsppt, &
                             rad2deg,INTTYP,wlon,rnlat,gis_stochy, &
-                            vfact_sppt,sl
+                            vfact_skeb,vfact_sppt,vfact_shum,skeb_vpts,skeb_vwts,sl, &
+                            nspp, vfact_spp
 use stochy_namelist_def
 use spectral_transforms,only:colrad_a,latg,lonf,skeblevs
 use mpi_wrapper, only : mpi_wrapper_initialize,mype,npes,is_rootpe, mp_bcst
@@ -55,7 +59,7 @@ integer :: nblks,len
 real*8 :: dx
 real, allocatable :: skeb_vloc(:)
 integer :: k,kflip,latghf,blk,k2,v,i
-integer :: k_top(2)
+integer :: sppt_k_top(2), skeb_k_top(2)
 
 ! Initialize MPI and OpenMP
 call mpi_wrapper_initialize(mpiroot,mpicomm)
@@ -90,7 +94,21 @@ endif
 ! update remaining model configuration parameters from namelist
 !use_zmtnblck_out=use_zmtnblck
 
-if  (.NOT. do_sppt) return
+if (is_rootpe()) then
+  print*, 'do_sppt, do_skeb:', do_sppt, do_skeb
+endif
+
+iret = 0
+if (do_sppt .eqv. .false.) then
+  iret = ior(iret, 1)
+endif
+if (do_skeb .eqv. .false.) then
+  iret = ior(iret, 2)
+endif
+  
+if  (.NOT. do_sppt .AND. .NOT. do_skeb) then
+  return
+endif
 
 !allocate(sl(levs))
 !do k=1,levs
@@ -101,28 +119,35 @@ if  (.NOT. do_sppt) return
 !print*, "zk:", zk
 if (is_rootpe()) then
   print*, 'sppt_hgt_top1,2:', sppt_hgt_top1, sppt_hgt_top2 
-  call find_ktop(zk, levs+1, sppt_hgt_top1,sppt_hgt_top2,k_top)
+  print*, 'skeb_hgt_top1,2:', skeb_hgt_top1, skeb_hgt_top2 
+  call find_ktop(zk, levs+1, sppt_hgt_top1,sppt_hgt_top2,sppt_k_top)
+  call find_ktop(zk, levs+1, skeb_hgt_top1,skeb_hgt_top2,skeb_k_top)
 endif
 
-if (is_rootpe()) print*, 'k_top:', k_top
-call mp_bcst(k_top, 2) 
-if (is_rootpe()) print*, 'after broadcast k_top:', k_top
+if (is_rootpe()) print*, 'sppt_k_top:', sppt_k_top
+if (is_rootpe()) print*, 'skeb_k_top:', skeb_k_top
 
+call mp_bcst(sppt_k_top, 2) 
+call mp_bcst(skeb_k_top, 2) 
+
+if (is_rootpe()) print*, 'after broadcast sppt_k_top:', sppt_k_top
+if (is_rootpe()) print*, 'after broadcast skeb_k_top:', skeb_k_top
+
+! initialization for sppt 
 if (do_sppt) then
    allocate(vfact_sppt(levs))
    do k=1,levs
-      if (k .lt. k_top(1)) then
+      if (k .lt. sppt_k_top(1)) then
           vfact_sppt(k) = 1.0
-      elseif (k .gt. k_top(2)) then
+      elseif (k .gt. sppt_k_top(2)) then
           vfact_sppt(k) = 0.0
-      elseif (k .ge. k_top(1) .and. k .le. k_top(2)) then
-         vfact_sppt(k) = 1.0 - (real(k)-real(k_top(1)))/(real(k_top(2)) - real(k_top(1)))
+      elseif (k .ge. sppt_k_top(1) .and. k .le. sppt_k_top(2)) then
+         vfact_sppt(k) = 1.0 - (real(k)-real(sppt_k_top(1)))/(real(sppt_k_top(2)) - real(sppt_k_top(1)))
       endif
    enddo
 
-!if (is_rootpe()) print*,'after vfact_sppt(k) computation:', vfact_sppt
-
-if (is_rootpe()) print*, 'sppt_sfclimit:', sppt_sfclimit
+   if (is_rootpe()) print*,'sppt vert profile:', vfact_sppt
+   if (is_rootpe()) print*, 'sppt_sfclimit:', sppt_sfclimit
 
    if (sppt_sfclimit) then
        do k=1,7
@@ -131,13 +156,59 @@ if (is_rootpe()) print*, 'sppt_sfclimit:', sppt_sfclimit
    endif
    if (is_rootpe()) then
       do k=1,levs
-         print *,'sppt vert profile',k,vfact_sppt(k)
+         print *,'after pbl_tapering, vfact_sppt(k)',k,vfact_sppt(k)
       enddo
    endif
    sppt_amp=sqrt(SUM(sppt(1:nsppt)**2))
 endif
 
-!if (is_rootpe()) print*, 'sppt_amp:', sppt_amp
+if (is_rootpe()) print*, 'sppt_amp:', sppt_amp
+
+! initialization for skeb 
+if (do_skeb) then
+   allocate(vfact_skeb(levs))
+!   allocate(skeb_vloc(skeblevs)) ! local
+!   allocate(skeb_vwts(levs,2)) ! save for later
+!   allocate(skeb_vpts(levs,2)) ! save for later
+   do k=1,levs
+      if (k .lt. skeb_k_top(1)) then
+          vfact_skeb(k) = 1.0
+      elseif (k .gt. skeb_k_top(2)) then
+          vfact_skeb(k) = 0.0
+      elseif (k .ge. skeb_k_top(1) .and. k .le. skeb_k_top(2)) then
+         vfact_skeb(k) = 1.0 - (real(k)-real(skeb_k_top(1)))/(real(skeb_k_top(2)) - real(skeb_k_top(1)))
+      endif
+      if (is_rootpe())  print *,'skeb vert profile',k,vfact_skeb(k)
+   enddo
+! calculate vertical interpolation weights
+!   do k=1,skeblevs
+!      skeb_vloc(k)=sl(1)-real(k-1)/real(skeblevs-1.0)*(sl(1)-sl(levs))
+!   enddo
+! surface
+!skeb_vwts(1,2)=0
+!skeb_vpts(1,1)=1
+! top
+!skeb_vwts(levs,2)=1
+!skeb_vpts(levs,1)=skeblevs-2
+! internal
+!DO k=2,levs-1
+!   DO k2=1,skeblevs-1
+!      IF (sl(k) .LE. skeb_vloc(k2) .AND. sl(k) .GT. skeb_vloc(k2+1)) THEN
+!        skeb_vpts(k,1)=k2
+!        skeb_vwts(k,2)=(skeb_vloc(k2)-sl(k))/(skeb_vloc(k2)-skeb_vloc(k2+1))
+!      ENDIF
+!   ENDDO
+!ENDDO
+!deallocate(skeb_vloc)
+!if (is_rootpe()) then
+!DO k=1,levs
+!   print*,'skeb vpts ',skeb_vpts(k,1),skeb_vwts(k,2)
+!ENDDO
+!endif
+!skeb_vwts(:,1)=1.0-skeb_vwts(:,2)
+!skeb_vpts(:,2)=skeb_vpts(:,1)+1.0
+
+endif
 
 ! get interpolation weights
 ! define gaussian grid lats and lons
@@ -161,17 +232,18 @@ if (is_rootpe()) then
   print*, 'gis_stochy%lats_node_a', gis_stochy%lats_node_a
 endif
 
-!if (is_rootpe()) print*, 'exit init_stochastic_physics, iret:', iret
+if (is_rootpe()) print*, 'exit init_stochastic_physics, iret:', iret
 end subroutine init_stochastic_physics
 
-subroutine run_stochastic_physics(levs, kdt, blksz, sppt_wts, sppt_wts_gg, iret)
+subroutine run_stochastic_physics(levs,kdt,blksz,sppt_wts,skebu_wts,skebv_wts,skebt_wts,wts_gg,iret)
 
 !\callgraph
 !use stochy_internal_state_mod
-use stochy_data_mod, only : nshum,rpattern_sppt,nsppt, gis_stochy,vfact_sppt 
+use stochy_data_mod, only : nshum,rpattern_sppt,nsppt,gis_stochy,vfact_sppt,rpattern_skebuv,rpattern_skebth,nskeb,vfact_skeb 
 use get_stochy_pattern_mod,only : get_random_pattern_scalar,get_random_pattern_vector, & 
-                                  get_random_pattern_sfc,get_random_pattern_spp
-use stochy_namelist_def, only : do_sppt,nssppt,sppt_logit 
+                                  get_random_pattern_sfc,get_random_pattern_spp, &
+                                  get_one_random_pattern_vector 
+use stochy_namelist_def, only : do_sppt,do_skeb,nssppt,nsskeb,sppt_logit 
 use mpi_wrapper, only: is_rootpe
 implicit none
 
@@ -180,9 +252,13 @@ integer,                  intent(in) :: levs, kdt
 integer,                  intent(in) :: blksz(:)
 integer,                  intent(out) :: iret 
 real(kind=kind_phys), intent(inout) :: sppt_wts(:,:,:)
-real(kind=RKIND), intent(inout) :: sppt_wts_gg(:,:)  
+real(kind=kind_phys), intent(inout) :: skebu_wts(:,:,:)
+real(kind=kind_phys), intent(inout) :: skebv_wts(:,:,:)
+real(kind=kind_phys), intent(inout) :: skebt_wts(:,:,:)
 
-real(kind_dbl_prec),allocatable :: tmp_wts(:,:)
+real(kind=RKIND), intent(inout) :: wts_gg(:,:)  
+
+real(kind_dbl_prec),allocatable :: tmp_wts(:,:),tmpu_wts(:,:),tmpv_wts(:,:),tmpl_wts(:,:,:),tmp_spp_wts(:,:,:)
 integer :: k,v
 integer j,ierr,i
 integer :: nblks, blk, length
@@ -194,29 +270,60 @@ if (.NOT. do_sppt) return
 nblks = size(blksz)
 if (is_rootpe()) then
   print*, 'kdt, nssppt, nblks, blkzs(1) =', kdt, nssppt,nblks,blksz(1)
-!  print*, 'nsppt =', nsppt
-!  print*, 'sppt_logit =', sppt_logit
+  print*, 'nsppt =', nsppt
+  print*, 'sppt_logit =', sppt_logit
 endif
 
 iret = 1
-allocate(tmp_wts(gis_stochy%nx,gis_stochy%ny))
 if (do_sppt) then
+   allocate(tmp_wts(gis_stochy%nx,gis_stochy%ny))
    if (mod(kdt,nssppt) == 1 .or. nssppt == 1) then
      if (is_rootpe()) print*, 'advance pattern', kdt, nssppt
-      call get_random_pattern_scalar(rpattern_sppt,nsppt,gis_stochy,tmp_wts,sppt_wts_gg)
-      DO blk=1,nblks
+      call get_random_pattern_scalar(rpattern_sppt,nsppt,gis_stochy,tmp_wts,wts_gg)
+      do blk=1,nblks
          length=blksz(blk)
-         DO k=1,levs
+         do k=1,levs
             !sppt_wts(blk,1:len,k)=tmp_wts(blk,1:len)*vfact_sppt(k)
             sppt_wts(blk,1:length,k)=tmp_wts(1:length,blk)*vfact_sppt(k)
-         ENDDO
+         enddo
          if (sppt_logit) sppt_wts(blk,:,:) = (2./(1.+exp(sppt_wts(blk,:,:))))-1.
          sppt_wts(blk,:,:) = sppt_wts(blk,:,:)+1.0
-      ENDDO
+      enddo
       iret = 0
    endif
+   deallocate(tmp_wts)
 endif
-deallocate(tmp_wts)
+if (do_skeb) then
+!vector pattern
+   allocate(tmpu_wts(gis_stochy%nx,gis_stochy%ny))
+   allocate(tmpv_wts(gis_stochy%nx,gis_stochy%ny))
+   if (mod(kdt,nsskeb) == 1 .or. nsskeb == 1) then
+      call get_one_random_pattern_vector(rpattern_skebuv,nskeb,gis_stochy,tmpu_wts,tmpv_wts)
+      do blk=1,nblks
+         length=blksz(blk)
+         do k=1,levs
+            skebu_wts(blk,1:length,k)=tmpu_wts(1:length,blk)*vfact_skeb(k)
+            skebv_wts(blk,1:length,k)=tmpv_wts(1:length,blk)*vfact_skeb(k)
+         enddo
+      enddo
+   endif
+   deallocate(tmpu_wts)
+   deallocate(tmpv_wts)
+! scalar pattern
+   allocate(tmp_wts(gis_stochy%nx,gis_stochy%ny))
+   if (mod(kdt,nsskeb) == 1 .or. nsskeb == 1) then
+      call get_random_pattern_scalar(rpattern_skebth,nskeb,gis_stochy,tmp_wts,wts_gg)
+      do blk=1,nblks
+         length=blksz(blk)
+         do k=1,levs
+            skebt_wts(blk,1:length,k)=tmp_wts(1:length,blk)*vfact_skeb(k)
+         enddo
+      enddo
+      iret = 0
+   endif
+   deallocate(tmp_wts)
+endif
+
 
 end subroutine run_stochastic_physics
 

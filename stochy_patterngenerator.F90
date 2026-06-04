@@ -60,12 +60,13 @@ module stochy_patterngenerator_mod
    integer(8), intent(inout) :: iseed(npatterns)
    integer m,j,l,n,nm,nn,np,indev1,indev2,indod1,indod2
    integer(8) count, count_rate, count_max, count_trunc
-   integer(8) :: iscale = 10000000000
+   integer(8) :: iscale 
    integer count4, ierr
 !   integer  member_id
    integer indlsod,indlsev,jbasev,jbasod
    include 'function_indlsod'
    include 'function_indlsev'
+   iscale = 10000000000
    nlons = nlon
    nlats = nlat
    ntrunc = jcap

@@ -23,7 +23,6 @@ module mpas_stochastic_physics
   real(kind=kind_phys), dimension(:,:,:), allocatable, save :: sfc_wts
   real(kind=kind_phys), dimension(:,:,:,:), allocatable, save :: spp_wts
 
-  logical, save :: is_initialized = .false.
   integer, save :: lsoil = -999
 
   !roughness length for land
@@ -38,9 +37,16 @@ module mpas_stochastic_physics
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca_deep_cpl, ca_turb_cpl, ca_shal_cpl
   real(kind=kind_phys), dimension(:,:),   allocatable, save :: ca1_cpl, ca2_cpl, ca3_cpl
 
-  logical, pointer :: do_sppt, do_skeb, do_shum, do_spp 
+  logical, pointer :: do_sppt_config, do_skeb_config, do_shum_config, do_spp_config 
+  logical :: do_sppt = .true. 
+  logical :: do_skeb = .true. 
+  logical :: do_shum, do_spp 
+
   real(kind=RKIND), dimension(:),pointer:: lonCell, latCell
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_sppt  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_skebu  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_skebv  ! stoch(nVertLevels, nCells)
+  real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_skebt  ! stoch(nVertLevels, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: zgrid  ! zgrid(nVertLevelsP1, nCells)
   real(kind=RKIND), dimension(:,:),pointer:: stoch_pat_gg  ! stoch(log_for, lat_leg)
   integer, dimension(:), pointer :: blksz
@@ -56,6 +62,8 @@ module mpas_stochastic_physics
   public stochastic_physics_pattern_init
   public stochastic_physics_pattern_adv
   public stochastic_physics_pattern_apply
+
+  public dosppt, doskeb
 
   contains
 
@@ -91,14 +99,15 @@ module mpas_stochastic_physics
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
     
     pid = domain%dminfo%my_proc_id  
-    print*, 'Enter stochastic_physics_pattern_init( )...', mype, domain % dminfo % nprocs
+    print*, 'Enter stochastic_physics_pattern_init( ), 102825...', mype, domain % dminfo % nprocs
 
-    call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt)
+!    call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt_config)
 
-    if (do_sppt .eqv. .false.) then
-      print*, 'do_sppt is false, do not perturb physics tendencies.'
-      return
-    endif
+!    if (do_sppt_config .eqv. .false.) then
+!      do_sppt = .false.
+!      print*, 'do_sppt is false, do not perturb physics tendencies.'
+!      return
+!    endif
 
     call mpas_pool_get_config(domain % blocklist % configs, 'config_dt', dt)
     if (pid == 0) then
@@ -139,8 +148,14 @@ module mpas_stochastic_physics
       endif 
       call mpas_pool_get_subpool(block%structs,'tend_physics' ,tend_physics)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_sppt',stoch_pat_sppt)
+      call mpas_pool_get_array(tend_physics,'stoch_pattern_skebu',stoch_pat_skebu)
+      call mpas_pool_get_array(tend_physics,'stoch_pattern_skebv',stoch_pat_skebv)
+      call mpas_pool_get_array(tend_physics,'stoch_pattern_skebt',stoch_pat_skebt)
       call mpas_pool_get_array(tend_physics,'stoch_pattern_gg',stoch_pat_gg)
       stoch_pat_sppt(:,:) = real(domain%dminfo%my_proc_id)
+      stoch_pat_skebu(:,:) = real(domain%dminfo%my_proc_id)
+      stoch_pat_skebv(:,:) = real(domain%dminfo%my_proc_id)
+      stoch_pat_skebt(:,:) = real(domain%dminfo%my_proc_id)
       block => block%next
     enddo
 
@@ -178,9 +193,12 @@ module mpas_stochastic_physics
 
     if (pid == 0) print*, 'Done init_stochastic_physics (domain, ...).', iret
 
-    if (iret /= 0) then !initialization failed, set all 'do' flags to false
-      do_sppt = .false.
-!      do_skeb = .false.
+    if (iret /= 0) then !initialization failed for at least one schemes, and set 'do' flag(s) to false
+      if (iand(iret,1) == 1) then
+        do_sppt = .false.
+      elseif (iand(iret,2) == 2) then
+        do_skeb = .false.
+      endif
 !      do_shum = .false.
 !      do_spp = .false.
     endif
@@ -209,7 +227,8 @@ module mpas_stochastic_physics
     integer, intent(in) :: ts_ct
     integer, intent(out) :: ierr
 
-    real(kind=kind_phys), dimension(:,:,:),pointer:: st_pat 
+    real(kind=kind_phys), dimension(:,:,:),pointer:: st_pat1, st_pat2 
+    real(kind=kind_phys), dimension(:,:,:),pointer:: st_upat, st_vpat 
     integer :: iret
 
     type(block_type),pointer:: block
@@ -232,14 +251,22 @@ module mpas_stochastic_physics
       print*,'There are more than one block, in this MPI rank!',  domain%dminfo%my_proc_id  
     endif
 
-    allocate(st_pat(1, blksz(1), nVertLevels)) 
-    call run_stochastic_physics(nVertLevels, ts_ct, blksz, st_pat, stoch_pat_gg, iret)
+    allocate(st_pat1(1, blksz(1), nVertLevels)) 
+    allocate(st_upat(1, blksz(1), nVertLevels)) 
+    allocate(st_vpat(1, blksz(1), nVertLevels)) 
+    allocate(st_pat2(1, blksz(1), nVertLevels)) 
+    
+    call run_stochastic_physics(nVertLevels,ts_ct,blksz,st_pat1,st_upat,st_vpat,st_pat2,stoch_pat_gg,iret)
     if (iret == 0) then ! if pattern is advanced (updated)
       do k = 1, nVertLevels
-        stoch_pat_sppt(k,1:nCells) = st_pat(1,1:nCells,k)
+        stoch_pat_sppt(k,1:nCells) = st_pat1(1,1:nCells,k)
+        stoch_pat_skebu(k,1:nCells) = st_upat(1,1:nCells,k)
+        stoch_pat_skebv(k,1:nCells) = st_vpat(1,1:nCells,k)
+        stoch_pat_skebt(k,1:nCells) = st_pat2(1,1:nCells,k)
       enddo
     endif
-    deallocate(st_pat)
+    deallocate(st_pat1, st_pat2)
+    deallocate(st_upat, st_vpat)
 
     ierr = 0
 
@@ -319,6 +346,20 @@ module mpas_stochastic_physics
          call mpas_pool_get_array(tend_physics,'tend_rho_physics',tend_array)
          call apply_pattern(tend_array, stoch_pat_sppt)
          if (pid == 0) print*, 'apply perturbation pattern to rho'
+       case ("diss_est_uv")
+         call mpas_pool_get_array(tend_physics,'diss_est_u',tend_array)
+         tend_array = 1.0E-05
+         call apply_pattern(tend_array, stoch_pat_skebu)
+         if (pid == 0) print*, 'apply perturbation pattern to SKEB diss_est function - u'
+         call mpas_pool_get_array(tend_physics,'diss_est_v',tend_array)
+         tend_array = 1.0E-05
+         call apply_pattern(tend_array, stoch_pat_skebv)
+         if (pid == 0) print*, 'apply perturbation pattern to SKEB diss_est function - v'
+       case ("diss_est_th")
+         call mpas_pool_get_array(tend_physics,'diss_est_th',tend_array)
+         tend_array = 1.0E-06
+         call apply_pattern(tend_array, stoch_pat_skebt)
+         if (pid == 0) print*, 'apply perturbation pattern to SKEB diss_est function - th'
        case default 
          print*, "The specified tendency is unknown and not perturbed." 
      end select
@@ -357,5 +398,32 @@ module mpas_stochastic_physics
     enddo
 
    end subroutine get_zk
+
+   logical function dosppt(domain)
+     type(domain_type),intent(in):: domain
+
+     dosppt = .false.
+     call mpas_pool_get_config(domain % blocklist % configs, 'do_sppt', do_sppt_config)
+     if (do_sppt_config .eqv. .true. .and. do_sppt .eqv. .true.) then
+       dosppt = .true. 
+     endif 
+
+   end function dosppt
+
+   logical function doskeb(domain, block)
+     type(domain_type),intent(in), optional :: domain
+     type(block_type),intent(in), optional :: block
+
+     doskeb = .false.
+     if (present(domain)) then
+       call mpas_pool_get_config(domain % blocklist % configs, 'do_skeb', do_skeb_config)
+     else if (present(block)) then
+       call mpas_pool_get_config(domain % blocklist % configs, 'do_skeb', do_skeb_config)
+     endif
+     if (do_skeb_config .eqv. .true. .and. do_skeb .eqv. .true.) then
+       doskeb = .true. 
+     endif 
+
+   end function doskeb
 
 end module mpas_stochastic_physics

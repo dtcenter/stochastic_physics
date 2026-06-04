@@ -6,11 +6,6 @@
                      description="logical flag for stochastic physics SPPT"
                      possible_values="logical values"/>
 
-                <nml_option name="do_skeb" type="logical" default_value="false" 
-                     units="-"
-                     description="logical flag for stochastic physics SKEB"
-                     possible_values="logical values"/>
-
                 <nml_option name="config_spptint" type="integer" default_value="0" 
                      units="seconds"
                      description="interval to advance perturbation pattern for SPPT"
@@ -18,17 +13,17 @@
 
                 <nml_option name="config_sppt_1" type="real" default_value="0.8" 
                      units="-"
-                     description="stochastic physics tendency amplitude"
+                     description="stochastic physics tendency amplitude 1"
                      possible_values="Positive values, 0.1 - 1.0"/>
 
                 <nml_option name="config_sppt_2" type="real" default_value="0.4" 
                      units="-"
-                     description="stochastic physics tendency amplitude"
+                     description="stochastic physics tendency amplitude 2"
                      possible_values="Positive values, 0.1 - 1.0"/>
 
                 <nml_option name="config_sppt_3" type="real" default_value="0.1" 
                      units="-"
-                     description="stochastic physics tendency amplitude"
+                     description="stochastic physics tendency amplitude 3"
                      possible_values="Positive values, 0.1 - 1.0"/>
 
                 <nml_option name="config_sppt_tau_1" type="real" default_value="21600" 
@@ -73,17 +68,17 @@
 
                 <nml_option name="config_iseed_sppt1" type="integer" default_value="3" 
                      units="-"
-                     description="sppt seed"
+                     description="sppt seed 1"
                      possible_values="Positive integer"/>
 
                 <nml_option name="config_iseed_sppt2" type="integer" default_value="0" 
                      units="-"
-                     description="sppt seed"
+                     description="sppt seed 2"
                      possible_values="Positive integer"/>
 
                 <nml_option name="config_iseed_sppt3" type="integer" default_value="0" 
                      units="-"
-                     description="sppt seed"
+                     description="sppt seed 3"
                      possible_values="Positive integer"/>
 
                 <nml_option name="config_sppt_hgt_top1" type="real" default_value="15000" 
@@ -96,9 +91,94 @@
                      description="sppt tapering ending height"
                      possible_values="Positive values"/>
 
+                <nml_option name="do_skeb" type="logical" default_value="false" 
+                     units="-"
+                     description="logical flag for stochastic physics SKEB"
+                     possible_values="logical values"/>
+
+                <nml_option name="config_skebint" type="integer" default_value="0" 
+                     units="seconds"
+                     description="interval to advance perturbation pattern for SKEB"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_skeb_1" type="real" default_value="0.8" 
+                     units="-"
+                     description="stochastic physics tendency amplitude"
+                     possible_values="Positive values, 0.1 - 1.0"/>
+
+                <nml_option name="config_skeb_2" type="real" default_value="0.4" 
+                     units="-"
+                     description="skeb pattern amplitude 3"
+                     possible_values="Positive values, 0.1 - 1.0"/>
+
+                <nml_option name="config_skeb_3" type="real" default_value="0.1" 
+                     units="-"
+                     description="skeb pattern amplitude 3"
+                     possible_values="Positive values, 0.1 - 1.0"/>
+
+                <nml_option name="config_skeb_tau_1" type="real" default_value="21600" 
+                     units="seconds"
+                     description="skeb time scale 1"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skeb_tau_2" type="real" default_value="86400" 
+                     units="seconds"
+                     description="skeb time scale 2"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skeb_tau_3" type="real" default_value="21600" 
+                     units="seconds"
+                     description="skeb time scale 3"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skeb_lscale_1" type="real" default_value="500000" 
+                     units="meters"
+                     description="skeb length scale 1"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skeb_lscale_2" type="real" default_value="1000000" 
+                     units="meters"
+                     description="skeb length scale 2"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skeb_lscale_3" type="real" default_value="2000000" 
+                     units="meters"
+                     description="skeb length scale 3"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skebnorm" type="real" default_value="2" 
+                     units="-"
+                     description="skeb norm: 0, 1, and 2 for stream function, KE and vorticity, respectively"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_iseed_skeb1" type="integer" default_value="3" 
+                     units="-"
+                     description="skeb seed 1"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_iseed_skeb2" type="integer" default_value="0" 
+                     units="-"
+                     description="skeb seed 2"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_iseed_skeb3" type="integer" default_value="0" 
+                     units="-"
+                     description="skeb seed 3"
+                     possible_values="Positive integer"/>
+
+                <nml_option name="config_skeb_hgt_top1" type="real" default_value="15000" 
+                     units="meters"
+                     description="skeb tapering starting height"
+                     possible_values="Positive values"/>
+
+                <nml_option name="config_skeb_hgt_top2" type="real" default_value="27000" 
+                     units="meters"
+                     description="skeb tapering ending height"
+                     possible_values="Positive values"/>
+
                 <nml_option name="config_stochini" type="logical" default_value=".false." 
                      units="-"
-                     description="true: read in pattern, falser : init from seed"
+                     description="true: read in pattern spec from file, false : init from seed"
                      possible_values="Logical values"/>
 
         </nml_record>

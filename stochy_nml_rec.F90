@@ -60,21 +60,36 @@ module stoch_nml_rec
       integer, pointer :: config_iseed_sppt1, config_iseed_sppt2, config_iseed_sppt3
       integer, pointer :: config_spptint
 
+      real (kind=RKIND), pointer :: config_skeb_1
+      real (kind=RKIND), pointer :: config_skeb_2
+      real (kind=RKIND), pointer :: config_skeb_3
+      real (kind=RKIND), pointer :: config_skeb_tau_1
+      real (kind=RKIND), pointer :: config_skeb_tau_2
+      real (kind=RKIND), pointer :: config_skeb_tau_3
+      real (kind=RKIND), pointer :: config_skeb_lscale_1
+      real (kind=RKIND), pointer :: config_skeb_lscale_2
+      real (kind=RKIND), pointer :: config_skeb_lscale_3
+      real (kind=RKIND), pointer :: config_skeb_hgt_top1
+      real (kind=RKIND), pointer :: config_skeb_hgt_top2
+      real (kind=RKIND), pointer :: config_skebnorm
       logical, pointer :: config_do_skeb
+      integer, pointer :: config_iseed_skeb1, config_iseed_skeb2, config_iseed_skeb3
+      integer, pointer :: config_skebint
+
       logical, pointer :: config_stochini
 
 !     spectral resolution defintion
-      ntrunc=-999
-      lon_s=-999
-      lat_s=-999
-      sppt             = -999.  ! stochastic physics tendency amplitude
-      iseed_sppt       = 0      ! random seeds (if 0 use system clock)
+      ntrunc =-999
+      lon_s =-999
+      lat_s =-999
+      sppt = -999.     ! stochastic physics tendency amplitude, the standard deviation
+                       ! of the random pattern
+      iseed_sppt = 0   ! random seeds (if 0 use system clock derived seeds.)
 ! logicals
       do_sppt = .false.
       use_zmtnblck = .false.
       new_lscale = .true.
-! parameters to control vertical tapering of stochastic physics with
-! height
+! parameters to control vertical tapering of stochastic physics pattern with height
       spptint      = 0
       sppt_hgt_top1 = 15000.0
       sppt_hgt_top2 = 27000.0
@@ -84,6 +99,11 @@ module stoch_nml_rec
 
       sppt_logit        = .false. ! logit transform for sppt to bounded interval [-1,+1]
       stochini          = .false. ! true= read in pattern, false=initialize from seed
+
+      skeb = -999.
+      iseed_skeb = 0
+      do_skeb = .false.
+      skebint = 0
 
 ! retrieve namelist rec
       configPool = domain % blocklist % configs
@@ -107,6 +127,23 @@ module stoch_nml_rec
       call mpas_pool_get_config(configPool, 'config_sppt_hgt_top2', config_sppt_hgt_top2)
 
       call mpas_pool_get_config(configPool, 'do_skeb', config_do_skeb)
+      call mpas_pool_get_config(configPool, 'config_skebint', config_skebint)
+      call mpas_pool_get_config(configPool, 'config_skeb_1', config_skeb_1)
+      call mpas_pool_get_config(configPool, 'config_skeb_2', config_skeb_2)
+      call mpas_pool_get_config(configPool, 'config_skeb_3', config_skeb_3)
+      call mpas_pool_get_config(configPool, 'config_skeb_tau_1', config_skeb_tau_1)
+      call mpas_pool_get_config(configPool, 'config_skeb_tau_2', config_skeb_tau_2)
+      call mpas_pool_get_config(configPool, 'config_skeb_tau_3', config_skeb_tau_3)
+      call mpas_pool_get_config(configPool, 'config_skeb_lscale_1', config_skeb_lscale_1)
+      call mpas_pool_get_config(configPool, 'config_skeb_lscale_2', config_skeb_lscale_2)
+      call mpas_pool_get_config(configPool, 'config_skeb_lscale_3', config_skeb_lscale_3)
+      call mpas_pool_get_config(configPool, 'config_skebnorm', config_skebnorm)
+      call mpas_pool_get_config(configPool, 'config_iseed_skeb1', config_iseed_skeb1)
+      call mpas_pool_get_config(configPool, 'config_iseed_skeb2', config_iseed_skeb2)
+      call mpas_pool_get_config(configPool, 'config_iseed_skeb3', config_iseed_skeb3)
+      call mpas_pool_get_config(configPool, 'config_skeb_hgt_top1', config_skeb_hgt_top1)
+      call mpas_pool_get_config(configPool, 'config_skeb_hgt_top2', config_skeb_hgt_top2)
+
       call mpas_pool_get_config(configPool, 'config_stochini', config_stochini)
 
       do_sppt = config_do_sppt
@@ -133,6 +170,27 @@ module stoch_nml_rec
       sppt_hgt_top2 = config_sppt_hgt_top2
 
       do_skeb = config_do_skeb
+      skebint = config_skebint
+      skeb(1) = config_skeb_1
+      skeb(2) = config_skeb_2
+      skeb(3) = config_skeb_3
+
+      skeb_tau(1) = config_skeb_tau_1
+      skeb_tau(2) = config_skeb_tau_2
+      skeb_tau(3) = config_skeb_tau_3
+
+      skeb_lscale(1) = config_skeb_lscale_1
+      skeb_lscale(2) = config_skeb_lscale_2
+      skeb_lscale(3) = config_skeb_lscale_3
+
+      skebnorm = config_skebnorm
+      iseed_skeb(1) = config_iseed_skeb1
+      iseed_skeb(2) = config_iseed_skeb2
+      iseed_skeb(3) = config_iseed_skeb3
+
+      skeb_hgt_top1 = config_skeb_hgt_top1
+      skeb_hgt_top2 = config_skeb_hgt_top2
+
       stochini = config_stochini
 
       r_earth  =6.3712e+6      ! radius of earth (m)
@@ -151,6 +209,32 @@ module stoch_nml_rec
           endif
       endif 
 
+      IF (skeb(1) > 0 ) THEN
+         do_skeb=.true.
+         if (skebnorm==0) then ! stream function norm
+            skeb=skeb*1.111e3*sqrt(deltim)
+         endif
+         if (skebnorm==1) then ! KE function norm
+            skeb=skeb*0.00222*sqrt(deltim)
+         endif
+         if (skebnorm==2) then ! vorticty function norm
+            skeb=skeb*1.111e-9*sqrt(deltim)
+         endif
+      ENDIF
+if (me==0) print*,'skebnorm:', skebnorm
+      skeb_vdof = 5
+
+!    compute frequencty to estimate dissipation timescale
+      IF (do_skeb) THEN
+          IF (skebint == 0.) skebint=deltim
+          nsskeb=nint(skebint/deltim)                              ! skebint in seconds
+          IF(nsskeb<=0 .or. abs(nsskeb-skebint/deltim)>tol) THEN
+             WRITE(0,*) "SKEB interval is invalid",skebint
+            iret=9
+            return
+          ENDIF
+      ENDIF 
+
 !calculate ntrunc if not supplied
       if (ntrunc .LT. 1) then  
         if (me==0) print*,'ntrunc not supplied, calculating'
@@ -158,6 +242,7 @@ module stoch_nml_rec
         l_min=circ
         do k=1,5
            if (sppt(k).GT.0) l_min=min(sppt_lscale(k),l_min)
+           if (skeb(k).GT.0) l_min=min(skeb_lscale(k),l_min)
         enddo
         ntrunc=circ/l_min
         if (me==0) print*,'ntrunc calculated from l_min',l_min,ntrunc

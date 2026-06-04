@@ -24,7 +24,7 @@ module stochy_data_mod
   public :: init_stochdata,init_stochdata_ocn
 
   type(random_pattern), public, save, allocatable, dimension(:) :: &
-       rpattern_sppt,rpattern_shum,rpattern_skeb, rpattern_sfc,rpattern_epbl1,rpattern_epbl2,rpattern_ocnsppt,rpattern_spp
+       rpattern_sppt,rpattern_shum,rpattern_skebuv,rpattern_skebth,rpattern_sfc,rpattern_epbl1,rpattern_epbl2,rpattern_ocnsppt,rpattern_spp
   integer, public :: nepbl=0
   integer, public :: nocnsppt=0
   integer, public :: nsppt=0
@@ -98,7 +98,25 @@ module stochy_data_mod
       do_sppt = .false.
       if (is_rootpe()) then
         print*, 'The SPPT namelist variable config_sppt(:) is not specified.'
-        print*, 'do_sppt is being set; returning.'
+        print*, 'do_sppt is being set to false; returning.'
+      endif  
+      iret = -1
+      return
+    endif
+
+    do n=1,size(skeb)
+      if (skeb(n) > 0) then
+        nskeb=nskeb+1
+      else
+        exit
+      endif
+    enddo
+
+    if (nskeb == 0) then
+      do_skeb = .false.
+      if (is_rootpe()) then
+        print*, 'The SKEB namelist variable config_sppt(:) is not specified.'
+        print*, 'do_skeb is being set to false; returning.'
       endif  
       iret = -1
       return
@@ -108,14 +126,22 @@ module stochy_data_mod
     if (is_rootpe()) print *,'sppt_tau = ',sppt_tau
     if (is_rootpe()) print *,'sppt = ',sppt
     if (is_rootpe()) print *,'spptint = ',spptint
+
+    if (is_rootpe()) print *,'skeb_lscale = ',skeb_lscale
+    if (is_rootpe()) print *,'skeb_tau = ',skeb_tau
+    if (is_rootpe()) print *,'skeb = ',skeb
+    if (is_rootpe()) print *,'skebint = ',skebint
+
     if (n_var_lndp>0) nlndp=1
     if (n_var_spp>0) nspp=n_var_spp
+
     if (is_rootpe())  print *,' nlndp   = ', nlndp
     if (is_rootpe())  print *,' nspp   = ', nspp
 
     if (nsppt > 0) allocate(rpattern_sppt(nsppt))
     if (nshum > 0) allocate(rpattern_shum(nshum))
-    if (nskeb > 0) allocate(rpattern_skeb(nskeb))
+    if (nskeb > 0) allocate(rpattern_skebuv(nskeb))
+    if (nskeb > 0) allocate(rpattern_skebth(nskeb))
 
    ! mg, sfc perts
     if (nlndp > 0) allocate(rpattern_sfc(nlndp))
@@ -125,7 +151,6 @@ module stochy_data_mod
     if (is_rootpe()) then
       if (stochini) then
          print*,'opening stoch_ini'
-         !OPEN(stochlun,file='INPUT/atm_stoch.res.bin',form='unformatted',iostat=ierr,status='old')
          ierr=nf90_open('INPUT/atm_stoch.res.nc',nf90_nowrite,ncid=stochlun)
          if (ierr .NE. 0) then
             write(0,*) 'error opening stoch_ini'
@@ -160,7 +185,6 @@ module stochy_data_mod
             end if
          endif
       endif
-     print*,'calling init',lonf,latg,jcap
       call patterngenerator_init(sppt_lscale(1:nsppt),spptint,sppt_tau(1:nsppt),sppt(1:nsppt),iseed_sppt,rpattern_sppt, &
            lonf,latg,jcap,gis_stochy%ls_node,nsppt,1,0,new_lscale)
       do n=1,nsppt
@@ -248,6 +272,7 @@ module stochy_data_mod
 ! backscatter noise.
       if (is_rootpe()) then
          print *, 'Initialize random pattern for SKEB'
+         print*, 'skeblevs:', skeblevs, '...', skeb_tau(1), skebint, skeb_vdof
          if (stochini) then
             ierr=NF90_INQ_VARID(stochlun,"skeb_seed", varid1)
             if (ierr .NE. 0) then
@@ -263,38 +288,72 @@ module stochy_data_mod
             end if
          endif
       endif
-      call patterngenerator_init(skeb_lscale(1:nskeb),skebint,skeb_tau(1:nskeb),skeb(1:nskeb),iseed_skeb,rpattern_skeb, &
+      call patterngenerator_init(skeb_lscale(1:nskeb),skebint,skeb_tau(1:nskeb),skeb(1:nskeb),iseed_skeb,rpattern_skebuv, &
            lonf,latg,jcap,gis_stochy%ls_node,nskeb,skeblevs,skeb_varspect_opt,new_lscale)
       do n=1,nskeb
          do k=1,skeblevs
             if (stochini) then
-               call read_pattern(rpattern_skeb(n),jcapin,stochlun,k,n,varid1,varid2,.true.,ierr)
+               call read_pattern(rpattern_skebuv(n),jcapin,stochlun,k,n,varid1,varid2,.true.,ierr)
                if (ierr .NE. 0) then
                   write(0,*) 'error reading SKEB pattern'
                   iret = ierr
                   return
                end if
             else
-               call getnoise(rpattern_skeb(n),noise_e,noise_o)
+               call getnoise(rpattern_skebuv(n),noise_e,noise_o)
                do nn=1,len_trie_ls
-                  rpattern_skeb(n)%spec_e(nn,1,k)=noise_e(nn,1)
-                  rpattern_skeb(n)%spec_e(nn,2,k)=noise_e(nn,2)
-                  nm = rpattern_skeb(n)%idx_e(nn)
+                  rpattern_skebuv(n)%spec_e(nn,1,k)=noise_e(nn,1)
+                  rpattern_skebuv(n)%spec_e(nn,2,k)=noise_e(nn,2)
+                  nm = rpattern_skebuv(n)%idx_e(nn)
                   if (nm .eq. 0) cycle
-                  rpattern_skeb(n)%spec_e(nn,1,k) = rpattern_skeb(n)%stdev*rpattern_skeb(n)%spec_e(nn,1,k)*rpattern_skeb(n)%varspectrum(nm)
-                  rpattern_skeb(n)%spec_e(nn,2,k) = rpattern_skeb(n)%stdev*rpattern_skeb(n)%spec_e(nn,2,k)*rpattern_skeb(n)%varspectrum(nm)
+                  rpattern_skebuv(n)%spec_e(nn,1,k) = rpattern_skebuv(n)%stdev*rpattern_skebuv(n)%spec_e(nn,1,k)*rpattern_skebuv(n)%varspectrum(nm)
+                  rpattern_skebuv(n)%spec_e(nn,2,k) = rpattern_skebuv(n)%stdev*rpattern_skebuv(n)%spec_e(nn,2,k)*rpattern_skebuv(n)%varspectrum(nm)
                enddo
                do nn=1,len_trio_ls
-                  rpattern_skeb(n)%spec_o(nn,1,k)=noise_o(nn,1)
-                  rpattern_skeb(n)%spec_o(nn,2,k)=noise_o(nn,2)
-                  nm = rpattern_skeb(n)%idx_o(nn)
+                  rpattern_skebuv(n)%spec_o(nn,1,k)=noise_o(nn,1)
+                  rpattern_skebuv(n)%spec_o(nn,2,k)=noise_o(nn,2)
+                  nm = rpattern_skebuv(n)%idx_o(nn)
                   if (nm .eq. 0) cycle
-                  rpattern_skeb(n)%spec_o(nn,1,k) = rpattern_skeb(n)%stdev*rpattern_skeb(n)%spec_o(nn,1,k)*rpattern_skeb(n)%varspectrum(nm)
-                  rpattern_skeb(n)%spec_o(nn,2,k) = rpattern_skeb(n)%stdev*rpattern_skeb(n)%spec_o(nn,2,k)*rpattern_skeb(n)%varspectrum(nm)
+                  rpattern_skebuv(n)%spec_o(nn,1,k) = rpattern_skebuv(n)%stdev*rpattern_skebuv(n)%spec_o(nn,1,k)*rpattern_skebuv(n)%varspectrum(nm)
+                  rpattern_skebuv(n)%spec_o(nn,2,k) = rpattern_skebuv(n)%stdev*rpattern_skebuv(n)%spec_o(nn,2,k)*rpattern_skebuv(n)%varspectrum(nm)
                enddo
             endif
          enddo
       enddo
+
+!      call patterngenerator_init(skeb_lscale(1:nskeb),skebint,skeb_tau(1:nskeb),skeb(1:nskeb),iseed_skeb,rpattern_skebth, &
+!           lonf,latg,jcap,gis_stochy%ls_node,nskeb,skeblevs,skeb_varspect_opt,new_lscale)
+      do n=1,nskeb
+         do k=1,skeblevs
+            if (stochini) then
+               call read_pattern(rpattern_skebth(n),jcapin,stochlun,k,n,varid1,varid2,.true.,ierr)
+               if (ierr .NE. 0) then
+                  write(0,*) 'error reading SKEB temperature pattern'
+                  iret = ierr
+                  return
+               end if
+            else
+               call getnoise(rpattern_skebth(n),noise_e,noise_o)
+               do nn=1,len_trie_ls
+                  rpattern_skebth(n)%spec_e(nn,1,k)=noise_e(nn,1)
+                  rpattern_skebth(n)%spec_e(nn,2,k)=noise_e(nn,2)
+                  nm = rpattern_skebth(n)%idx_e(nn)
+                  if (nm .eq. 0) cycle
+                  rpattern_skebth(n)%spec_e(nn,1,k) = rpattern_skebth(n)%stdev*rpattern_skebth(n)%spec_e(nn,1,k)*rpattern_skebth(n)%varspectrum(nm)
+                  rpattern_skebth(n)%spec_e(nn,2,k) = rpattern_skebth(n)%stdev*rpattern_skebth(n)%spec_e(nn,2,k)*rpattern_skebth(n)%varspectrum(nm)
+               enddo
+               do nn=1,len_trio_ls
+                  rpattern_skebth(n)%spec_o(nn,1,k)=noise_o(nn,1)
+                  rpattern_skebth(n)%spec_o(nn,2,k)=noise_o(nn,2)
+                  nm = rpattern_skebth(n)%idx_o(nn)
+                  if (nm .eq. 0) cycle
+                  rpattern_skebth(n)%spec_o(nn,1,k) = rpattern_skebth(n)%stdev*rpattern_skebth(n)%spec_o(nn,1,k)*rpattern_skebth(n)%varspectrum(nm)
+                  rpattern_skebth(n)%spec_o(nn,2,k) = rpattern_skebth(n)%stdev*rpattern_skebth(n)%spec_o(nn,2,k)*rpattern_skebth(n)%varspectrum(nm)
+               enddo
+            endif
+         enddo
+      enddo
+
 
       gis_stochy%kenorm_e=1.
       gis_stochy%kenorm_o=1. ! used to convert forcing pattern to wind field.
