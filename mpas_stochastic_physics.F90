@@ -76,13 +76,13 @@ module mpas_stochastic_physics
    !>  pattern generation.  
    !
    !-----------------------------------------------------------------------
-  subroutine stochastic_physics_pattern_init (domain, ierr)
+  subroutine stochastic_physics_pattern_init (domain)
 
     use stochastic_physics_m,  only: init_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
-    integer, intent(out) :: ierr
+
 
 !local variables:
     type(mpas_pool_type) :: configPool
@@ -225,7 +225,6 @@ module mpas_stochastic_physics
 !    if (pid == 0) print*, 'Call init_stochastic_physics (domain, ...).'
     mpi_root = 0; mpi_comm = domain%dminfo%comm
     dtp = real(dt, kind=kind_phys)
-    ierr = 0
     call init_stochastic_physics(domain, nVertLevels, blksz, dtp, sppt_amp, &
          xlon, xlat, zk, mpi_comm, mpi_root, iret) 
 
@@ -258,14 +257,13 @@ module mpas_stochastic_physics
    !>  This routine advances the perturbation pattern.  
    !
    !-----------------------------------------------------------------------
-  subroutine stochastic_physics_pattern_adv (domain, ts_ct, ierr)
+  subroutine stochastic_physics_pattern_adv (domain, ts_ct)
 
     use stochastic_physics_m,  only: run_stochastic_physics
     implicit none
 
     type(domain_type),intent(inout):: domain
     integer, intent(in) :: ts_ct
-    integer, intent(out) :: ierr
 
     real(kind=kind_phys), dimension(:,:,:),pointer:: st_pat 
     integer :: iret
@@ -311,8 +309,6 @@ module mpas_stochastic_physics
     endif
     deallocate(st_pat)
 
-    ierr = 0
-
   end subroutine stochastic_physics_pattern_adv
 
    !***********************************************************************
@@ -331,10 +327,9 @@ module mpas_stochastic_physics
    !>  from both PBL and convection schemes, at the cell centers.
    !
    !-----------------------------------------------------------------------
-  subroutine stochastic_physics_pattern_apply(domain, tend_category, ierr)
+  subroutine stochastic_physics_pattern_apply(domain, tend_category)
     type(domain_type),intent(in):: domain
     character(len=4), intent(in) :: tend_category
-    integer, intent(out) :: ierr
 
     real(kind=RKIND), dimension(:,:),pointer:: tend_array 
     character(len=tend_name_len), dimension(:), pointer :: tend_names
@@ -432,7 +427,6 @@ module mpas_stochastic_physics
    endif
 
    nullify(tend_names)
-   ierr = 0
 
   end subroutine stochastic_physics_pattern_apply
 
