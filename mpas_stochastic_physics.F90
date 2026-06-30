@@ -272,6 +272,7 @@ module mpas_stochastic_physics
     integer :: k, kdt, i, j
     integer :: pid
     logical do_pattern
+    character(len=80) :: msg
 
     pid = domain%dminfo%my_proc_id  
 
@@ -306,6 +307,11 @@ module mpas_stochastic_physics
       do k = 1, nVertLevels
         stoch_pat_sppt(k,1:nCells) = real(st_pat(1,1:nCells,k), kind=RKIND)
       enddo
+    else
+      write(msg, '("Pattern advancement failed:  iret = ", I0, A, "Stopping.")') &
+           iret, new_line('a')
+      call mpas_log_write(msg)
+      stop trim(msg)
     endif
     deallocate(st_pat)
 
