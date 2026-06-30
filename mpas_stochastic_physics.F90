@@ -232,9 +232,8 @@ module mpas_stochastic_physics
 !    if (pid == 0) print*, 'Done init_stochastic_physics (domain, ...).', iret
 
     ! If the initialization fails, print out an error message and exit.
-    iret = 7
     if (iret /= 0) then
-      do_sppt = .false.
+!      do_sppt = .false.
 !      do_skeb = .false.
 !      do_shum = .false.
 !      do_spp = .false.
