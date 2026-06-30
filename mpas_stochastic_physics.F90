@@ -94,6 +94,7 @@ module mpas_stochastic_physics
     real(kind=kind_phys):: sppt_amp, dtp
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
+    character(len=80) :: msg
 
     pid = domain%dminfo%my_proc_id  
     configPool = domain%blocklist%configs
@@ -230,11 +231,17 @@ module mpas_stochastic_physics
 
 !    if (pid == 0) print*, 'Done init_stochastic_physics (domain, ...).', iret
 
-    if (iret /= 0) then !initialization failed, set all 'do' flags to false
+    ! If the initialization fails, print out an error message and exit.
+    iret = 7
+    if (iret /= 0) then
       do_sppt = .false.
 !      do_skeb = .false.
 !      do_shum = .false.
 !      do_spp = .false.
+      write(msg, '("Pattern initialization failed:  iret = ", I0, A, "Stopping.")') &
+           iret, new_line('a')
+      call mpas_log_write(msg)
+      stop trim(msg)
     endif
  
 !    print*, 'Exit stochastic_physics_pattern_init', pid
