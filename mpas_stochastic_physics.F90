@@ -386,7 +386,7 @@ module mpas_stochastic_physics
 
         call mpas_log_write( &
              '    Will apply ' // trim(stoch_scheme_name) // ' perturbations to "' // &
-             trim(tend_name) // '"...')
+             trim(tend_name) // '".')
 
         if (any(tend_name == tend_names_phys)) then
           indx_phys = findloc(tend_names_phys, tend_name, dim=1)
@@ -439,7 +439,7 @@ module mpas_stochastic_physics
          '  tends_to_perturb_sppt_prog = (/ ' // trim(tends_to_perturb_sppt_prog_str) // ' /)')
 
     call mpas_log_write( &
-         'Done setting up ' // trim(stoch_scheme_name) // '-associated variables')
+         'Done setting up ' // trim(stoch_scheme_name) // '-associated variables.')
 
   end subroutine setup_sppt_mpas
 
@@ -590,8 +590,9 @@ module mpas_stochastic_physics
 
       call mpas_log_write( &
            'Applying ' // trim(stoch_scheme_name) // ' perturbations to the following ' // &
-           trim(tend_category_long) // ' tendencies:')
-      call mpas_log_write( '  ' // tends_to_perturb_str)
+           trim(tend_category_long) // ' tendencies:  ' // tends_to_perturb_str)
+!           trim(tend_category_long) // ' tendencies:')
+!      call mpas_log_write( '  ' // tends_to_perturb_str)
       do i = 1, size(tends_to_perturb)
         tend_name = tends_to_perturb(i)
         call mpas_pool_get_array(tend_physics, trim(tend_name), tend_array)
