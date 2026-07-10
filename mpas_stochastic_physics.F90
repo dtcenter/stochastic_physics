@@ -49,12 +49,8 @@ module mpas_stochastic_physics
   integer, parameter :: tend_name_len = 32
   character(len=tend_name_len), allocatable, dimension(:) :: &
     tend_names_phys, tend_names_prog, tend_names_sppt
-  character(len=:), allocatable :: &
-    tend_names_phys_str, tend_names_prog_str, tend_names_sppt_str
   character(len=tend_name_len), allocatable, target, dimension(:) :: &
     tends_to_perturb_sppt_phys, tends_to_perturb_sppt_prog
-  character(len=:), allocatable, target :: &
-    tends_to_perturb_sppt_phys_str, tends_to_perturb_sppt_prog_str
   logical :: sppt_setup_complete = .false.
 
   integer, save :: nblks
@@ -101,7 +97,7 @@ module mpas_stochastic_physics
     real(kind=kind_phys), dimension(:), pointer:: zk
     real(kind=kind_phys), dimension(:,:), pointer:: xlon, xlat
     character(len=80) :: msg
-
+    character(len=:), allocatable :: tend_names_str
 
     pid = domain%dminfo%my_proc_id  
     configPool = domain%blocklist%configs
@@ -241,208 +237,23 @@ module mpas_stochastic_physics
 !
 ! Print out the list of physics tendencies that stochastic schemes may perturb.
 !
-    tend_names_phys_str = ''
-    do i = 1, size(tend_names_phys)
-      if (i == 1) then
-        tend_names_phys_str = '"' // trim(tend_names_phys(i)) // '"'
-      else
-        tend_names_phys_str = tend_names_phys_str // ', "' // trim(tend_names_phys(i)) // '"'
-      end if
-    end do
+    call char_array_to_str(tend_names_phys, tend_names_str, separator=', ')
     call mpas_log_write( &
          'The tendencies in the "phys" (physics) category that may be perturbed by ' // &
          'stochastic physics schemes are:')
-    call mpas_log_write( &
-         '  tend_names_phys = (/ ' // trim(tend_names_phys_str) // ' /)')
-!(/pid/)
+    call mpas_log_write('    ' // trim(tend_names_str))
+!
 ! Print out the list of prognostic tendencies that stochastic schemes may perturb.
 !
-    tend_names_prog_str = ''
-    do i = 1, size(tend_names_prog)
-      if (i == 1) then
-        tend_names_prog_str = '"' // trim(tend_names_prog(i)) // '"'
-      else
-        tend_names_prog_str = tend_names_prog_str // ', "' // trim(tend_names_prog(i)) // '"'
-      end if
-    end do
+    call char_array_to_str(tend_names_prog, tend_names_str, separator=', ')
     call mpas_log_write( &
          'The tendencies in the "prog" (prognostic) category that may be perturbed by ' // &
          'stochastic physics schemes are:')
-    call mpas_log_write( &
-         '  tend_names_prog = (/ ' // trim(tend_names_prog_str) // ' /)')
+    call mpas_log_write('    ' // trim(tend_names_str))
 
 !    print*, 'Exit stochastic_physics_pattern_init', pid
 
   end subroutine stochastic_physics_pattern_init
-
-
-   !***********************************************************************
-   !
-   !  routine setup_sppt_mpas
-   !
-   !> \brief   Subroutine to set up SPPT
-   !> \author  Gerard Ketefian
-   !> \date    July 2026
-   !> \details 
-   !>  This routine is intended to setup variables needed by SPPT.
-   !
-   !-----------------------------------------------------------------------
-  subroutine setup_sppt_mpas()
-
-    character(len=tend_name_len), allocatable, dimension(:) :: tend_names_all_categ
-    character(len=tend_name_len) :: tend_name
-    character(len=:), allocatable :: stoch_scheme_name
-    integer :: i, indx_phys, indx_prog
-    real(kind=RKIND), dimension(:,:), pointer:: tend_array 
-    logical :: sppt_tend_is_valid
-    logical, allocatable, dimension(:) :: keep_mask_phys, keep_mask_prog
-
-
-    stoch_scheme_name = "SPPT"
-    call mpas_log_write('')
-    call mpas_log_write( &
-         'Setting up ' // trim(stoch_scheme_name) // '-associated variables...')
-!
-! Set all tendencies (both process-level and accumulated state tendencies) that
-! SPPT may (but not necessarily will) perturb.
-!
-    allocate(tend_names_sppt(5))
-    tend_names_sppt(1) = "rucuten"
-    tend_names_sppt(2) = "rvcuten"
-    tend_names_sppt(3) = "rublten"
-    tend_names_sppt(4) = "rvblten"
-    tend_names_sppt(5) = "tend_rtheta_physics"
-!
-! Print out the list of tendencies that SPPT may perturb.
-!
-    tend_names_sppt_str = ''
-    do i = 1, size(tend_names_sppt)
-      if (i == 1) then
-        tend_names_sppt_str = '"' // trim(tend_names_sppt(i)) // '"'
-      else
-        tend_names_sppt_str = tend_names_sppt_str // ', "' // trim(tend_names_sppt(i)) // '"'
-      end if
-    end do
-
-    call mpas_log_write( &
-         'The tendencies that ' // trim(stoch_scheme_name) // &
-         ' may (but not necessarily will) perturb are:')
-    call mpas_log_write( &
-         '  tend_names_sppt = (/ ' // trim(tend_names_sppt_str) // ' /)')
-!
-! Form list of all tendencies (i.e. either in the physics or the prognostic 
-! categories) that may be perturbed by stochastic schemes.  This is useful
-! in the various consistency checks below.
-! 
-! Note that this is a whole-array assignment, i.e. tend_names_all_categ is
-! auto-(re)allocated to size(tend_names_phys) + size(tend_names_prog)
-!
-    tend_names_all_categ = [tend_names_phys, tend_names_prog]
-!
-!
-!
-    allocate(keep_mask_phys(size(tend_names_sppt)))
-    keep_mask_phys(:) = .false.
-
-    allocate(keep_mask_prog(size(tend_names_sppt)))
-    keep_mask_prog(:) = .false.
-
-    call mpas_log_write( &
-         'Selecting from the physics and prognostic tendency lists those tendencies that ' // &
-         'will be perturbed by ' // trim(stoch_scheme_name) // '...')
-
-    do i=1, size(tend_names_sppt)
-
-      tend_name = tend_names_sppt(i)
-      call mpas_log_write( &
-         '  Considering tendency:  "' // trim(tend_name) // '"')
-!
-! First, check that the current tendency is valid, i.e. that it exists in
-! either the list of physics tendencies or prognostic tendencies that may
-! be perturbed by the stochastic schemes.  If not, print out a message and
-! stop.
-!
-      sppt_tend_is_valid = any(tend_name == tend_names_all_categ)
-      if (.not. sppt_tend_is_valid) then
-        call mpas_log_write( &
-             'The current SPPT tendency is not valid because it is neither ' // &
-             'in the list of physics nor prognostic tendencies that may be perturbed ' // &
-             'by the stochastic physics schemes:')
-        call mpas_log_write( &
-             '  tend_name = "' // trim(tend_name) // '"')
-        call mpas_log_write( &
-             '  tend_names_phys = (/ ' // trim(tend_names_phys_str) // ' /)')
-        call mpas_log_write( &
-             '  tend_names_prog = (/ ' // trim(tend_names_prog_str) // ' /)')
-        stop
-      end if
-!
-! Now check whether the pointer to the tendency array is associated (i.e.
-! doesn't point to a null address).  If so, set its mask value in the list
-! of physics or prognostic tendency names to true.
-!
-      call mpas_pool_get_array(tend_physics, trim(tend_name), tend_array)
-      if (associated(tend_array)) then
-
-        call mpas_log_write( &
-             '    Will apply ' // trim(stoch_scheme_name) // ' perturbations to "' // &
-             trim(tend_name) // '".')
-
-        if (any(tend_name == tend_names_phys)) then
-          indx_phys = findloc(tend_names_phys, tend_name, dim=1)
-          keep_mask_phys(indx_phys) = .true.
-        else if (any(tend_name == tend_names_prog)) then
-          indx_prog = findloc(tend_names_prog, tend_name, dim=1)
-          keep_mask_prog(indx_prog) = .true.
-        end if
-
-      else
-        call mpas_log_write( &
-             '  Will NOT apply ' // trim(stoch_scheme_name) // ' perturbations to "' // &
-             trim(tend_name) // '" because the latter is not associated.')
-      endif
-
-    end do
-!
-! Set the arrays containing the lists of physics and prognostic tendencies,
-! respectively, that SPPT will perturb.  Then print out their contents.
-!
-    tends_to_perturb_sppt_phys = pack(tend_names_phys, keep_mask_phys)
-    tends_to_perturb_sppt_prog = pack(tend_names_prog, keep_mask_prog)
-
-    tends_to_perturb_sppt_phys_str = ''
-    do i = 1, size(tends_to_perturb_sppt_phys)
-      if (i == 1) then
-        tends_to_perturb_sppt_phys_str = '"' // trim(tends_to_perturb_sppt_phys(i)) // '"'
-      else
-        tends_to_perturb_sppt_phys_str &
-          = tends_to_perturb_sppt_phys_str // ', "' // trim(tends_to_perturb_sppt_phys(i)) // '"'
-      end if
-    end do
-    call mpas_log_write( &
-         'Tendencies in the physics category to be perturbed by ' // trim(stoch_scheme_name) // ' are: ')
-    call mpas_log_write( &
-         '  tends_to_perturb_sppt_phys = (/ ' // trim(tends_to_perturb_sppt_phys_str) // ' /)')
-
-    tends_to_perturb_sppt_prog_str = ''
-    do i = 1, size(tends_to_perturb_sppt_prog)
-      if (i == 1) then
-        tends_to_perturb_sppt_prog_str = '"' // trim(tends_to_perturb_sppt_prog(i)) // '"'
-      else
-        tends_to_perturb_sppt_prog_str &
-          = tends_to_perturb_sppt_prog_str // ', "' // trim(tends_to_perturb_sppt_prog(i)) // '"'
-      end if
-    end do
-    call mpas_log_write( &
-         'Tendencies in the prognostic category to be perturbed by ' // trim(stoch_scheme_name) // ' are: ')
-    call mpas_log_write( &
-         '  tends_to_perturb_sppt_prog = (/ ' // trim(tends_to_perturb_sppt_prog_str) // ' /)')
-
-    call mpas_log_write( &
-         'Done setting up ' // trim(stoch_scheme_name) // '-associated variables.')
-
-  end subroutine setup_sppt_mpas
-
 
 
    !***********************************************************************
@@ -538,7 +349,7 @@ module mpas_stochastic_physics
 
     real(kind=RKIND), dimension(:,:), pointer:: tend_array 
     character(len=tend_name_len), dimension(:), pointer :: tends_to_perturb
-    character(len=:), pointer :: tends_to_perturb_str
+    character(len=:), allocatable :: tends_to_perturb_str
     type(block_type), pointer:: block
     integer :: i, nblks, pid
     character(len=tend_name_len) :: tend_name
@@ -579,20 +390,17 @@ module mpas_stochastic_physics
       if (trim(tend_category) == 'phys') then
         tend_category_long = "physics"
         tends_to_perturb => tends_to_perturb_sppt_phys
-        tends_to_perturb_str => tends_to_perturb_sppt_phys_str
       else if (trim(tend_category) == 'prog') then
         tend_category_long = "prognostic"
         tends_to_perturb => tends_to_perturb_sppt_prog
-        tends_to_perturb_str => tends_to_perturb_sppt_prog_str
       else
          stop "Invalid tend_category: tend_category = " // trim(tend_category)
       end if
 
+      call char_array_to_str(tends_to_perturb, tends_to_perturb_str, separator=', ')
       call mpas_log_write( &
            'Applying ' // trim(stoch_scheme_name) // ' perturbations to the following ' // &
            trim(tend_category_long) // ' tendencies:  ' // tends_to_perturb_str)
-!           trim(tend_category_long) // ' tendencies:')
-!      call mpas_log_write( '  ' // tends_to_perturb_str)
       do i = 1, size(tends_to_perturb)
         tend_name = tends_to_perturb(i)
         call mpas_pool_get_array(tend_physics, trim(tend_name), tend_array)
@@ -609,7 +417,158 @@ module mpas_stochastic_physics
 
     tendency = tendency*stoch_pattern
 
-   end subroutine apply_pattern
+  end subroutine apply_pattern
+
+  !***********************************************************************
+  !
+  !  routine setup_sppt_mpas
+  !
+  !> \brief   Subroutine to set up SPPT to run with MPAS.
+  !> \author  Gerard Ketefian
+  !> \date    July 2026
+  !> \details 
+  !>  This routine is intended to setup variables needed by SPPT to run
+  !>  with the MPAS dycore.
+  !
+  !-----------------------------------------------------------------------
+  subroutine setup_sppt_mpas()
+
+    character(len=tend_name_len), allocatable, dimension(:) :: tend_names_all_categ
+    character(len=tend_name_len) :: tend_name
+    character(len=:), allocatable :: stoch_scheme_name, tend_names_str
+    integer :: i, indx_phys, indx_prog
+    real(kind=RKIND), dimension(:,:), pointer:: tend_array 
+    logical :: sppt_tend_is_valid
+    logical, allocatable, dimension(:) :: keep_mask_phys, keep_mask_prog
+    character(len=:), allocatable :: &
+      tend_names_sppt_str, tends_to_perturb_sppt_phys_str, tends_to_perturb_sppt_prog_str
+
+    stoch_scheme_name = "SPPT"
+    call mpas_log_write('')
+    call mpas_log_write( &
+         'Setting up ' // trim(stoch_scheme_name) // '-associated variables...')
+!
+! Set all tendencies (both process-level and accumulated state tendencies) that
+! SPPT may (but not necessarily will) perturb.
+!
+    allocate(tend_names_sppt(5))
+    tend_names_sppt(1) = "rucuten"
+    tend_names_sppt(2) = "rvcuten"
+    tend_names_sppt(3) = "rublten"
+    tend_names_sppt(4) = "rvblten"
+    tend_names_sppt(5) = "tend_rtheta_physics"
+!
+! Print out the list of tendencies that SPPT may perturb.
+!
+    call char_array_to_str(tend_names_sppt, tend_names_sppt_str, separator=', ')
+    call mpas_log_write( &
+         'The tendencies that ' // trim(stoch_scheme_name) // &
+         ' may (but not necessarily will) perturb are:')
+    call mpas_log_write('    ' // trim(tend_names_sppt_str))
+!
+! Form list of all tendencies (i.e. either in the physics or the prognostic 
+! categories) that may be perturbed by stochastic schemes.  This is useful
+! in the various consistency checks below.
+! 
+! Note that this is a whole-array assignment, i.e. tend_names_all_categ is
+! auto-(re)allocated to size(tend_names_phys) + size(tend_names_prog)
+!
+    tend_names_all_categ = [tend_names_phys, tend_names_prog]
+!
+! Form lists of the tendencies in each category (physics or progonostic)
+! that will (not may) be perturbed by SPPT.  Use masking arrays to select
+! these from the general list of tendencies above that may be perturbed.
+!
+    allocate(keep_mask_phys(size(tend_names_sppt)))
+    keep_mask_phys(:) = .false.
+
+    allocate(keep_mask_prog(size(tend_names_sppt)))
+    keep_mask_prog(:) = .false.
+
+    call mpas_log_write( &
+         'Selecting from the physics and prognostic tendency lists those tendencies that ' // &
+         'will be perturbed by ' // trim(stoch_scheme_name) // '...')
+
+    do i=1, size(tend_names_sppt)
+
+      tend_name = tend_names_sppt(i)
+      call mpas_log_write( &
+         '  Considering tendency: ' // trim(tend_name))
+!
+! First, check that the current tendency is valid, i.e. that it exists in
+! either the list of physics tendencies or prognostic tendencies that may
+! be perturbed by the stochastic schemes.  If not, print out a message and
+! stop.
+!
+      sppt_tend_is_valid = any(tend_name == tend_names_all_categ)
+      if (.not. sppt_tend_is_valid) then
+        call mpas_log_write( &
+             'The current SPPT tendency is not valid because it is neither ' // &
+             'in the list of physics nor prognostic tendencies that may be perturbed ' // &
+             'by the stochastic physics schemes:')
+        call mpas_log_write( &
+             '  tend_name = "' // trim(tend_name) // '"')
+        call char_array_to_str(tend_names_phys, tend_names_str, &
+                               separator=", ", quote_elems=.true.)
+        call mpas_log_write( &
+             '  tend_names_phys = (/ ' // trim(tend_names_str) // ' /)')
+        call char_array_to_str(tend_names_prog, tend_names_str, &
+                               separator=", ", quote_elems=.true.)
+        call mpas_log_write( &
+             '  tend_names_prog = (/ ' // trim(tend_names_str) // ' /)')
+        stop
+      end if
+!
+! Now check whether the pointer to the tendency array is associated (i.e.
+! doesn't point to a null address).  If so, set its mask value in the list
+! of physics or prognostic tendency names to true.
+!
+      call mpas_pool_get_array(tend_physics, trim(tend_name), tend_array)
+      if (associated(tend_array)) then
+
+        call mpas_log_write( &
+             '    Will apply ' // trim(stoch_scheme_name) // ' perturbations to ' // &
+             trim(tend_name))
+
+        if (any(tend_name == tend_names_phys)) then
+          indx_phys = findloc(tend_names_phys, tend_name, dim=1)
+          keep_mask_phys(indx_phys) = .true.
+        else if (any(tend_name == tend_names_prog)) then
+          indx_prog = findloc(tend_names_prog, tend_name, dim=1)
+          keep_mask_prog(indx_prog) = .true.
+        end if
+
+      else
+        call mpas_log_write( &
+             '  Will NOT apply ' // trim(stoch_scheme_name) // ' perturbations to ' // &
+             trim(tend_name) // ' because the latter is not associated.')
+      endif
+
+    end do
+!
+! Set and then print out the arrays containing the lists of physics and
+! prognostic tendencies, respectively, that SPPT will perturb.
+!
+    tends_to_perturb_sppt_phys = pack(tend_names_phys, keep_mask_phys)
+    call char_array_to_str( &
+         tends_to_perturb_sppt_phys, tends_to_perturb_sppt_phys_str, separator=', ')
+    call mpas_log_write( &
+         'Tendencies in the physics category to be perturbed by ' // &
+         trim(stoch_scheme_name) // ' are: ')
+    call mpas_log_write('    ' // trim(tends_to_perturb_sppt_phys_str))
+
+    tends_to_perturb_sppt_prog = pack(tend_names_prog, keep_mask_prog)
+    call char_array_to_str( &
+         tends_to_perturb_sppt_prog, tends_to_perturb_sppt_prog_str, separator=', ')
+    call mpas_log_write( &
+         'Tendencies in the prognostic category to be perturbed by ' // &
+         trim(stoch_scheme_name) // ' are: ')
+    call mpas_log_write('    ' // trim(tends_to_perturb_sppt_prog_str))
+
+    call mpas_log_write( &
+         'Done setting up ' // trim(stoch_scheme_name) // '-associated variables.')
+
+  end subroutine setup_sppt_mpas
 
    subroutine get_zk(zgrid, zk)
     real(kind=kind_phys), dimension(nVertLevelsP1,nCells) :: zgrid
@@ -643,5 +602,36 @@ module mpas_stochastic_physics
      endif 
 
    end function dosppt
+
+   subroutine char_array_to_str(char_array, str, separator, quote_elems)
+     character(len=*), dimension(:), intent(in) :: char_array
+     character(len=:), allocatable, intent(out) :: str
+     character(len=*), intent(in), optional :: separator
+     logical, intent(in), optional :: quote_elems
+
+     character(len=:), allocatable :: quote, sep
+     integer :: i
+
+     if (present(separator)) then
+       sep = separator
+     else
+       sep = ' '
+     end if
+
+     quote = ''
+     if (present(quote_elems)) then
+       if (quote_elems) quote = '"'
+     end if
+
+     str = ''
+     do i=1, size(char_array)
+       if (i == 1) then
+         str = quote // trim(char_array(i)) // quote
+       else
+         str = str // sep // quote // trim(char_array(i)) // quote
+       end if
+     end do
+
+   end subroutine char_array_to_str
 
 end module mpas_stochastic_physics
