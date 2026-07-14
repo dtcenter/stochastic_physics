@@ -21,7 +21,7 @@ module stochy_data_mod
 
  implicit none
  private
- public :: init_stochdata,init_stochdata_ocn
+ public :: init_stochdata,init_stochdata_ocn,stoch_restfile
 
  type(random_pattern), public, save, allocatable, dimension(:) :: &
        rpattern_sppt,rpattern_shum,rpattern_skeb, rpattern_sfc,rpattern_epbl1,rpattern_epbl2,&
@@ -44,6 +44,7 @@ module stochy_data_mod
  real(kind=kind_phys),public, allocatable :: skebu_save(:,:,:),skebv_save(:,:,:)
  integer,public :: INTTYP
  type(stochy_internal_state),public :: gis_stochy,gis_stochy_ocn,gis_stochy_ocn_skeb
+ character(len=2048) :: stoch_restfile = './INPUT/ocn_stoch.res.nc' ! same length as restartfiles in mom_cap.F90
 
  contains
 !>@brief The subroutine 'init_stochdata' determins which stochastic physics
@@ -544,9 +545,9 @@ module stochy_data_mod
    if (is_rootpe()) then
       if (stochini) then
          print*,'opening stoch_ini'
-         ierr=nf90_open('INPUT/ocn_stoch.res.nc',nf90_nowrite,ncid=stochlun)
+         ierr=nf90_open(TRIM(stoch_restfile),nf90_nowrite,ncid=stochlun)
          if (ierr .NE. 0) then
-            write(0,*) 'error opening stoch_ini'
+            write(0,*) 'error opening stoch_ini file:', trim(stoch_restfile)
             iret = ierr
             return
          end if
@@ -710,13 +711,13 @@ module stochy_data_mod
          if (stochini) then
             ierr=NF90_INQ_VARID(stochlun,"ocnskeb_seed", varid1)
             if (ierr .NE. 0) then
-               write(0,*) 'error inquring OCNSPPT seed'
+               write(0,*) 'error inquring OCNSKEB seed'
                iret = ierr
                return
             end if
             ierr=NF90_INQ_VARID(stochlun,"ocnskeb_spec", varid2)
             if (ierr .NE. 0) then
-               write(0,*) 'error inquring OCNSPPT spec'
+               write(0,*) 'error inquring OCNSKEB spec'
                iret = ierr
                return
             end if

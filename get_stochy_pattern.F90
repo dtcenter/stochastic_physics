@@ -592,9 +592,9 @@ subroutine write_stoch_restart_ocn(sfile)
        endif
        if (do_ocnskeb) then
           ierr=NF90_DEF_VAR(ncid,"ocnskeb_seed",NF90_DOUBLE,(/seed_dim_id, np_dim_id/), varid4a)
-          ierr=NF90_PUT_ATT(ncid,varid4a,"long_name","random number seed for SPPT")
+          ierr=NF90_PUT_ATT(ncid,varid4a,"long_name","random number seed for SKEB")
           ierr=NF90_DEF_VAR(ncid,"ocnskeb_spec",NF90_DOUBLE,(/spec_dim_id, np_dim_id/), varid4b)
-          ierr=NF90_PUT_ATT(ncid,varid4b,"long_name","spectral cofficients SPPT")
+          ierr=NF90_PUT_ATT(ncid,varid4b,"long_name","spectral cofficients SKEB")
        endif
        ierr=NF90_ENDDEF(ncid)
        if (ierr .NE. 0) then
