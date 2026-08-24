@@ -42,9 +42,22 @@ stoch_physics_lib: $(OBJS)
 phys_interface: $(OBJS)
 
 # DEPENDENCIES:
-mpas_atmphys_camrad_init.o: \
-	mpas_atmphys_constants.o \
-	mpas_atmphys_utilities.o
+stochy_internal_state_mod.o: kinddef.o
+stochy_namelist_def.o: kinddef.o
+spectral_transforms.o: kinddef.o mpi_wrapper.o stochy_internal_state_mod.o stochy_namelist_def.o
+mersenne_twister.o: kinddef.o
+stochy_patterngenerator.o: kinddef.o spectral_transforms.o mersenne_twister.o mpi_wrapper.o
+compns_stochy.o: stochy_namelist_def.o
+stochy_nml_rec.o: kinddef.o stochy_namelist_def.o
+stochy_data_mod.o: kinddef.o stochy_nml_rec.o spectral_transforms.o stochy_namelist_def.o \
+	mpi_wrapper.o stochy_patterngenerator.o stochy_internal_state_mod.o \
+	mersenne_twister.o compns_stochy.o
+get_stochy_pattern.o: kinddef.o spectral_transforms.o stochy_namelist_def.o \
+	stochy_data_mod.o stochy_patterngenerator.o stochy_internal_state_mod.o \
+	mpi_wrapper.o mersenne_twister.o
+stochastic_physics_m.o: kinddef.o stochy_data_mod.o stochy_namelist_def.o \
+	spectral_transforms.o mpi_wrapper.o get_stochy_pattern.o
+mpas_stochastic_physics.o: kinddef.o stochastic_physics_m.o
 
 clean:
 	$(RM) *.o *.mod libstochphys.a
